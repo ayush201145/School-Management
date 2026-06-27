@@ -144,6 +144,7 @@ class SyncRepository @Inject constructor(
 
     /** Looks up a single row's local updatedAt — used to build the clientUpdatedAt sent with each push. */
     private suspend fun getEntityUpdatedAt(tableName: String, id: String): Long? = when (tableName) {
+        "AcademicYear" -> db.academicYearDao().getById(id)?.updatedAt
         "Student" -> db.studentDao().getById(id)?.updatedAt
         "Teacher" -> db.teacherDao().getById(id)?.updatedAt
         "Section" -> db.sectionDao().getById(id)?.updatedAt
@@ -151,21 +152,14 @@ class SyncRepository @Inject constructor(
         "StudentFee" -> db.studentFeeDao().getById(id)?.updatedAt
         "Payment" -> db.paymentDao().getById(id)?.updatedAt
         "StudentItemPurchase" -> db.studentItemPurchaseDao().getById(id)?.updatedAt
+        "ItemCategory" -> db.itemCategoryDao().getById(id)?.updatedAt
+        "ItemVariant" -> db.itemVariantDao().getById(id)?.updatedAt
+        "InventoryTransaction" -> db.inventoryTransactionDao().getById(id)?.updatedAt
         "Attendance" -> db.attendanceDao().getById(id)?.updatedAt
         "TeacherAttendance" -> db.teacherAttendanceDao().getById(id)?.updatedAt
         "Staff" -> db.staffDao().getById(id)?.updatedAt
         "SalaryPayment" -> db.salaryPaymentDao().getById(id)?.updatedAt
         "RecurringExpenseTemplate" -> db.recurringExpenseTemplateDao().getById(id)?.updatedAt
-        // ExpenseCategory and Expense have no getById. Falling back to
-        // now() for clientUpdatedAt on these two is acceptable given
-        // this app's actual deployment context (one, or at most two,
-        // active users — not many devices editing concurrently), which
-        // makes the kind of same-row race this fallback would mask
-        // unrealistic in practice. If that ever changes (more staff
-        // actively using the app on separate devices at once), add a
-        // real getById to both DAOs and wire it in here, the same way
-        // SchoolClassDao's missing getById was a genuine bug fixed
-        // earlier in this project.
         else -> null
     } ?: System.currentTimeMillis()
 

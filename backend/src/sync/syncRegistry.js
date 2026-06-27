@@ -7,6 +7,10 @@
  * entirely by this registry — no per-table sync code needed.
  */
 const SYNC_TABLES = {
+  AcademicYear: {
+    prismaModel: "academicYear",
+    writableFields: ["label", "startDate", "endDate", "isCurrent"],
+  },
   Student: {
     prismaModel: "student",
     writableFields: [

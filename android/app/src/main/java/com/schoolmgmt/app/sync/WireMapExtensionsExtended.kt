@@ -6,7 +6,15 @@ import com.schoolmgmt.app.data.local.entity.SchoolClassEntity
 import com.schoolmgmt.app.data.local.entity.SectionEntity
 import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
 import com.schoolmgmt.app.data.local.entity.StudentItemPurchaseEntity
+import com.schoolmgmt.app.data.local.entity.AcademicYearEntity
 import com.schoolmgmt.app.data.local.entity.TeacherAttendanceEntity
+
+fun AcademicYearEntity.toWireMap(): Map<String, Any?> = mapOf(
+    "label" to label,
+    "startDate" to IsoDates.toIsoString(startDate),
+    "endDate" to IsoDates.toIsoString(endDate),
+    "isCurrent" to isCurrent,
+)
 
 fun SectionEntity.toWireMap(): Map<String, Any?> = mapOf(
     "name" to name,

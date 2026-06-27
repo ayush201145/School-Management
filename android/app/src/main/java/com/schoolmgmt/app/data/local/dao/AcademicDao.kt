@@ -23,6 +23,9 @@ interface AcademicYearDao {
     @Query("SELECT * FROM academic_years WHERE isDeleted = 0 ORDER BY startDate DESC")
     fun observeAll(): Flow<List<AcademicYearEntity>>
 
+    @Query("SELECT * FROM academic_years WHERE id = :id AND isDeleted = 0")
+    suspend fun getById(id: String): AcademicYearEntity?
+
     @Query("SELECT * FROM academic_years WHERE isCurrent = 1 AND isDeleted = 0 LIMIT 1")
     suspend fun getCurrent(): AcademicYearEntity?
 

@@ -15,7 +15,32 @@ import com.schoolmgmt.app.data.local.entity.SchoolClassEntity
 import com.schoolmgmt.app.data.local.entity.SectionEntity
 import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
 import com.schoolmgmt.app.data.local.entity.StudentItemPurchaseEntity
+import com.schoolmgmt.app.data.local.entity.AcademicYearEntity
 import com.schoolmgmt.app.data.local.entity.TeacherAttendanceEntity
+
+object AcademicYearSyncAdapter : SyncTableAdapter {
+    override val tableName = "AcademicYear"
+
+    override suspend fun getUnsynced(db: AppDatabase): List<Pair<String, Map<String, Any?>>> =
+        db.academicYearDao().getUnsyncedChanges().map { it.id to it.toWireMap() }
+
+    override suspend fun applyFromServer(db: AppDatabase, id: String, fields: Map<String, Any?>, updatedAtMillis: Long, isDeleted: Boolean) {
+        val existing = db.academicYearDao().getById(id)
+        val merged = AcademicYearEntity(
+            id = id,
+            label = (fields["label"] as? String) ?: existing?.label ?: "",
+            startDate = (fields["startDate"] as? String)?.let(IsoDates::parseToMillis) ?: existing?.startDate ?: updatedAtMillis,
+            endDate = (fields["endDate"] as? String)?.let(IsoDates::parseToMillis) ?: existing?.endDate ?: updatedAtMillis,
+            isCurrent = (fields["isCurrent"] as? Boolean) ?: existing?.isCurrent ?: false,
+            updatedAt = updatedAtMillis,
+            isDeleted = isDeleted,
+            syncedAt = updatedAtMillis,
+        )
+        db.academicYearDao().upsert(merged)
+    }
+
+    override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.academicYearDao().markSynced(id, syncedAt)
+}
 
 object SectionSyncAdapter : SyncTableAdapter {
     override val tableName = "Section"
