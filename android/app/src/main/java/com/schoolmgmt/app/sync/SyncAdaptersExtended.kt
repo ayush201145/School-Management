@@ -1,6 +1,11 @@
 package com.schoolmgmt.app.sync
 
 import com.schoolmgmt.app.data.local.AppDatabase
+import com.schoolmgmt.app.data.local.entity.ItemCategoryEntity
+import com.schoolmgmt.app.data.local.entity.ItemVariantEntity
+import com.schoolmgmt.app.data.local.entity.InventoryTransactionEntity
+import com.schoolmgmt.app.data.local.entity.ItemType
+import com.schoolmgmt.app.data.local.entity.InventoryMovementType
 import com.schoolmgmt.app.data.local.entity.AttendanceEntity
 import com.schoolmgmt.app.data.local.entity.AttendanceStatus
 import com.schoolmgmt.app.data.local.entity.FeeStatus
@@ -193,4 +198,85 @@ object TeacherAttendanceSyncAdapter : SyncTableAdapter {
     }
 
     override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.teacherAttendanceDao().markSynced(id, syncedAt)
+}
+
+object ItemCategorySyncAdapter : SyncTableAdapter {
+    override val tableName = "ItemCategory"
+
+    override suspend fun getUnsynced(db: AppDatabase): List<Pair<String, Map<String, Any?>>> =
+        db.itemCategoryDao().getUnsyncedChanges().map { it.id to it.toWireMap() }
+
+    override suspend fun applyFromServer(db: AppDatabase, id: String, fields: Map<String, Any?>, updatedAtMillis: Long, isDeleted: Boolean) {
+        val existing = db.itemCategoryDao().getById(id)
+        val merged = ItemCategoryEntity(
+            id = id,
+            name = (fields["name"] as? String) ?: existing?.name ?: "",
+            type = (fields["type"] as? String)?.let {
+                runCatching { ItemType.valueOf(it) }.getOrNull()
+            } ?: existing?.type ?: ItemType.OTHER,
+            description = (fields["description"] as? String) ?: existing?.description,
+            updatedAt = updatedAtMillis,
+            isDeleted = isDeleted,
+            syncedAt = updatedAtMillis,
+        )
+        db.itemCategoryDao().upsert(merged)
+    }
+
+    override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.itemCategoryDao().markSynced(id, syncedAt)
+}
+
+object ItemVariantSyncAdapter : SyncTableAdapter {
+    override val tableName = "ItemVariant"
+
+    override suspend fun getUnsynced(db: AppDatabase): List<Pair<String, Map<String, Any?>>> =
+        db.itemVariantDao().getUnsyncedChanges().map { it.id to it.toWireMap() }
+
+    override suspend fun applyFromServer(db: AppDatabase, id: String, fields: Map<String, Any?>, updatedAtMillis: Long, isDeleted: Boolean) {
+        val existing = db.itemVariantDao().getById(id)
+        val merged = ItemVariantEntity(
+            id = id,
+            itemCategoryId = (fields["itemCategoryId"] as? String) ?: existing?.itemCategoryId ?: "",
+            label = (fields["label"] as? String) ?: existing?.label ?: "",
+            classId = (fields["classId"] as? String) ?: existing?.classId,
+            size = (fields["size"] as? String) ?: existing?.size,
+            price = (fields["price"] as? Double) ?: existing?.price ?: 0.0,
+            stockQuantity = (fields["stockQuantity"] as? Double)?.toInt() ?: existing?.stockQuantity ?: 0,
+            isActive = (fields["isActive"] as? Boolean) ?: existing?.isActive ?: true,
+            updatedAt = updatedAtMillis,
+            isDeleted = isDeleted,
+            syncedAt = updatedAtMillis,
+        )
+        db.itemVariantDao().upsert(merged)
+    }
+
+    override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.itemVariantDao().markSynced(id, syncedAt)
+}
+
+object InventoryTransactionSyncAdapter : SyncTableAdapter {
+    override val tableName = "InventoryTransaction"
+
+    override suspend fun getUnsynced(db: AppDatabase): List<Pair<String, Map<String, Any?>>> =
+        db.inventoryTransactionDao().getUnsyncedChanges().map { it.id to it.toWireMap() }
+
+    override suspend fun applyFromServer(db: AppDatabase, id: String, fields: Map<String, Any?>, updatedAtMillis: Long, isDeleted: Boolean) {
+        val existing = db.inventoryTransactionDao().getById(id)
+        val merged = InventoryTransactionEntity(
+            id = id,
+            itemVariantId = (fields["itemVariantId"] as? String) ?: existing?.itemVariantId ?: "",
+            type = (fields["type"] as? String)?.let {
+                runCatching { InventoryMovementType.valueOf(it) }.getOrNull()
+            } ?: existing?.type ?: InventoryMovementType.IN,
+            quantity = (fields["quantity"] as? Double)?.toInt() ?: existing?.quantity ?: 0,
+            note = (fields["note"] as? String) ?: existing?.note,
+            recordedById = (fields["recordedById"] as? String) ?: existing?.recordedById,
+            purchaseId = (fields["purchaseId"] as? String) ?: existing?.purchaseId,
+            createdAt = (fields["createdAt"] as? String)?.let(IsoDates::parseToMillis) ?: existing?.createdAt ?: updatedAtMillis,
+            updatedAt = updatedAtMillis,
+            isDeleted = isDeleted,
+            syncedAt = updatedAtMillis,
+        )
+        db.inventoryTransactionDao().upsert(merged)
+    }
+
+    override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.inventoryTransactionDao().markSynced(id, syncedAt)
 }

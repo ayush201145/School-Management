@@ -23,6 +23,9 @@ interface ItemCategoryDao {
     @Query("SELECT * FROM item_categories WHERE isDeleted = 0 ORDER BY name ASC")
     fun observeAll(): Flow<List<ItemCategoryEntity>>
 
+    @Query("SELECT * FROM item_categories WHERE id = :id AND isDeleted = 0")
+    suspend fun getById(id: String): ItemCategoryEntity?
+
     @Query("SELECT * FROM item_categories WHERE syncedAt IS NULL OR updatedAt > syncedAt")
     suspend fun getUnsyncedChanges(): List<ItemCategoryEntity>
 
@@ -183,6 +186,9 @@ interface InventoryTransactionDao {
     /** Full movement ledger for one variant — audit trail ("where did the stock go"). */
     @Query("SELECT * FROM inventory_transactions WHERE itemVariantId = :variantId AND isDeleted = 0 ORDER BY createdAt DESC")
     fun observeForVariant(variantId: String): Flow<List<InventoryTransactionEntity>>
+
+    @Query("SELECT * FROM inventory_transactions WHERE id = :id AND isDeleted = 0")
+    suspend fun getById(id: String): InventoryTransactionEntity?
 
     @Query("SELECT * FROM inventory_transactions WHERE syncedAt IS NULL OR updatedAt > syncedAt")
     suspend fun getUnsyncedChanges(): List<InventoryTransactionEntity>

@@ -50,6 +50,18 @@ const SYNC_TABLES = {
     prismaModel: "studentItemPurchase",
     writableFields: ["studentId", "itemVariantId", "quantity"],
   },
+  ItemCategory: {
+    prismaModel: "itemCategory",
+    writableFields: ["name", "type", "description"],
+  },
+  ItemVariant: {
+    prismaModel: "itemVariant",
+    writableFields: ["itemCategoryId", "label", "classId", "size", "price", "stockQuantity", "isActive"],
+  },
+  InventoryTransaction: {
+    prismaModel: "inventoryTransaction",
+    writableFields: ["itemVariantId", "type", "quantity", "note", "recordedById", "purchaseId"],
+  },
   Attendance: {
     prismaModel: "attendance",
     writableFields: ["studentId", "sectionId", "date", "status", "markedById"],

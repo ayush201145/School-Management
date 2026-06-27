@@ -59,3 +59,28 @@ fun TeacherAttendanceEntity.toWireMap(): Map<String, Any?> = mapOf(
     "date" to IsoDates.toIsoString(date),
     "status" to status.name,
 )
+
+fun com.schoolmgmt.app.data.local.entity.ItemCategoryEntity.toWireMap(): Map<String, Any?> = mapOf(
+    "name" to name,
+    "type" to type.name,
+    "description" to description,
+)
+
+fun com.schoolmgmt.app.data.local.entity.ItemVariantEntity.toWireMap(): Map<String, Any?> = mapOf(
+    "itemCategoryId" to itemCategoryId,
+    "label" to label,
+    "classId" to classId,
+    "size" to size,
+    "price" to price,
+    "stockQuantity" to stockQuantity,
+    "isActive" to isActive,
+)
+
+fun com.schoolmgmt.app.data.local.entity.InventoryTransactionEntity.toWireMap(): Map<String, Any?> = mapOf(
+    "itemVariantId" to itemVariantId,
+    "type" to type.name,
+    "quantity" to quantity,
+    "note" to note,
+    "recordedById" to recordedById,
+    "purchaseId" to purchaseId,
+)
