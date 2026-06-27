@@ -38,7 +38,7 @@ android {
             // 10.0.2.2 is the special alias the Android EMULATOR uses to
             // reach "localhost" on your development machine.
             // Replace with your real server URL for a physical device or production.
-            buildConfigField("String", "BASE_URL", "\"http://10.152.40.98:4000/\"")
+            buildConfigField("String", "BASE_URL", "\"https://school-management-yvcj.onrender.com/\"")
         }
     }
     buildFeatures {

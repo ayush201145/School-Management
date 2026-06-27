@@ -37,6 +37,13 @@ async function main() {
       console.log(`Created class: ${name}`);
     }
     classMap[name] = cls;
+
+    // Ensure default General section exists
+    let section = await prisma.section.findFirst({ where: { name: "General", classId: cls.id } });
+    if (!section) {
+      await prisma.section.create({ data: { name: "General", classId: cls.id } });
+      console.log(`  Created default section "General" for class: ${name}`);
+    }
   }
 
   // 3. Book category + one variant per class (price/stock left at 0 —
