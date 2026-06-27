@@ -109,6 +109,9 @@ class FeeStructureRepository @Inject constructor(
 
     fun observeByClass(classId: String) = feeStructureDao.observeByClass(classId)
 
+    fun observeFeeCategories() = db.feeCategoryDao().observeAll()
+    suspend fun getCurrentAcademicYear() = db.academicYearDao().getCurrent()
+
     suspend fun createFeeStructure(
         feeCategoryId: String,
         classId: String,

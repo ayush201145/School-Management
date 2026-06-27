@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.schoolmgmt.app.data.local.entity.FeeCategoryEntity
+
 @HiltViewModel
 class FeeStructuresViewModel @Inject constructor(
     private val feeStructureRepository: FeeStructureRepository,
@@ -31,6 +33,9 @@ class FeeStructuresViewModel @Inject constructor(
         if (classId == null) flowOf(emptyList())
         else feeStructureRepository.observeByClass(classId)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val feeCategories = feeStructureRepository.observeFeeCategories()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _lastAssignResult = MutableStateFlow<BulkAssignResult?>(null)
     val lastAssignResult: StateFlow<BulkAssignResult?> = _lastAssignResult
@@ -49,5 +54,41 @@ class FeeStructuresViewModel @Inject constructor(
 
     fun dismissAssignResult() {
         _lastAssignResult.value = null
+    }
+
+    fun createFeeStructure(
+        feeCategoryId: String,
+        amount: Double,
+        dueDate: Long,
+        description: String?,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val classId = selectedClassId.value
+        if (classId == null) {
+            onError("No class selected")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val year = feeStructureRepository.getCurrentAcademicYear()
+                if (year == null) {
+                    onError("No current academic year found. Please sync to load academic years.")
+                    return@launch
+                }
+                feeStructureRepository.createFeeStructure(
+                    feeCategoryId = feeCategoryId,
+                    classId = classId,
+                    academicYearId = year.id,
+                    amount = amount,
+                    dueDate = dueDate,
+                    description = description
+                )
+                onSuccess()
+            } catch (e: Exception) {
+                onError("Failed to create fee structure: ${e.message ?: "unknown error"}")
+            }
+        }
     }
 }

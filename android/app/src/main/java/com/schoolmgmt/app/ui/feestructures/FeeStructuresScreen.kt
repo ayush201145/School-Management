@@ -32,6 +32,22 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.schoolmgmt.app.data.local.entity.FeeStructureEntity
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.schoolmgmt.app.data.local.entity.FeeCategoryEntity
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeeStructuresScreen(
@@ -41,7 +57,11 @@ fun FeeStructuresScreen(
     val classes by viewModel.classes.collectAsState()
     val selectedClassId by viewModel.currentSelectedClassId.collectAsState()
     val structures by viewModel.structures.collectAsState()
+    val feeCategories by viewModel.feeCategories.collectAsState()
     val assignResult by viewModel.lastAssignResult.collectAsState()
+
+    var showAddDialog by remember { mutableStateOf(false) }
+    var operationError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -54,6 +74,16 @@ fun FeeStructuresScreen(
                 },
             )
         },
+        floatingActionButton = {
+            if (selectedClassId != null) {
+                FloatingActionButton(onClick = {
+                    operationError = null
+                    showAddDialog = true
+                }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add Fee Structure")
+                }
+            }
+        }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             LazyRow(
@@ -75,23 +105,56 @@ fun FeeStructuresScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(16.dp),
                 )
-            } else if (structures.isEmpty()) {
-                Text(
-                    "No fee structures defined for this class yet.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(16.dp),
-                )
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(structures, key = { it.id }) { structure ->
-                        FeeStructureRow(
-                            structure = structure,
-                            onAssign = { viewModel.assignToClass(structure.id) },
-                        )
+                operationError?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+
+                if (structures.isEmpty()) {
+                    Text(
+                        "No fee structures defined for this class yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        items(structures, key = { it.id }) { structure ->
+                            FeeStructureRow(
+                                structure = structure,
+                                onAssign = { viewModel.assignToClass(structure.id) },
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+
+    if (showAddDialog) {
+        AddFeeStructureDialog(
+            categories = feeCategories,
+            onDismiss = { showAddDialog = false },
+            onConfirm = { catId, amount, dueDate, desc ->
+                viewModel.createFeeStructure(
+                    feeCategoryId = catId,
+                    amount = amount,
+                    dueDate = dueDate,
+                    description = desc,
+                    onSuccess = {
+                        showAddDialog = false
+                    },
+                    onError = {
+                        operationError = it
+                        showAddDialog = false
+                    }
+                )
+            }
+        )
     }
 
     if (assignResult != null) {
@@ -110,6 +173,130 @@ fun FeeStructuresScreen(
             },
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddFeeStructureDialog(
+    categories: List<FeeCategoryEntity>,
+    onDismiss: () -> Unit,
+    onConfirm: (categoryId: String, amount: Double, dueDate: Long, description: String?) -> Unit
+) {
+    var selectedCategory by remember { mutableStateOf<FeeCategoryEntity?>(categories.firstOrNull()) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+    var amountStr by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var dueDateStr by remember {
+        mutableStateOf(LocalDate.now().plusMonths(1).format(DateTimeFormatter.ISO_LOCAL_DATE))
+    }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Fee Structure") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (categories.isEmpty()) {
+                    Text("No fee categories found. Please sync the app first to pull categories from the server.", color = MaterialTheme.colorScheme.error)
+                } else {
+                    Text("Category", style = MaterialTheme.typography.labelMedium)
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { dropdownExpanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(selectedCategory?.name ?: "Select Category")
+                        }
+                        DropdownMenu(
+                            expanded = dropdownExpanded,
+                            onDismissRequest = { dropdownExpanded = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category.name) },
+                                    onClick = {
+                                        selectedCategory = category
+                                        dropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = amountStr,
+                    onValueChange = { amountStr = it },
+                    label = { Text("Amount (₹)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = dueDateStr,
+                    onValueChange = { dueDateStr = it },
+                    label = { Text("Due Date (YYYY-MM-DD)") },
+                    placeholder = { Text("YYYY-MM-DD") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description (Optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                errorMsg?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val category = selectedCategory
+                    if (category == null) {
+                        errorMsg = "Please select a category"
+                        return@TextButton
+                    }
+                    val amount = amountStr.toDoubleOrNull()
+                    if (amount == null || amount <= 0) {
+                        errorMsg = "Please enter a valid amount greater than 0"
+                        return@TextButton
+                    }
+                    val parsedDate = runCatching {
+                        LocalDate.parse(dueDateStr)
+                            .atStartOfDay(ZoneId.systemDefault())
+                            .toInstant()
+                            .toEpochMilli()
+                    }.getOrNull()
+                    if (parsedDate == null) {
+                        errorMsg = "Invalid date format. Use YYYY-MM-DD"
+                        return@TextButton
+                    }
+
+                    onConfirm(
+                        category.id,
+                        amount,
+                        parsedDate,
+                        description.trim().takeIf { it.isNotBlank() }
+                    )
+                },
+                enabled = categories.isNotEmpty()
+            ) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable

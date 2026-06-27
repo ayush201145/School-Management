@@ -11,8 +11,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -46,6 +49,28 @@ fun InventoryScreen(
     val lowStockOnly by viewModel.isLowStockOnly.collectAsState()
     var selectedRow by remember { mutableStateOf<InventoryRow?>(null) }
 
+    val grouped = items.groupBy { row ->
+        val name = row.categoryName.lowercase()
+        when {
+            name.contains("book") -> "Books"
+            name.contains("summer (regular)") || name.contains("summer regular") -> "Summer Uniform (Regular)"
+            name.contains("pt") || name.contains("sports") || name.contains("pt/sports") -> "PT / Sports"
+            name.contains("winter") -> "Winter Uniform"
+            else -> row.categoryName
+        }
+    }
+
+    val sections = listOf(
+        "Books",
+        "Summer Uniform (Regular)",
+        "PT / Sports",
+        "Winter Uniform"
+    )
+
+    var expandedSections by remember {
+        mutableStateOf(setOf("Books", "Summer Uniform (Regular)", "PT / Sports", "Winter Uniform"))
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -75,8 +100,49 @@ fun InventoryScreen(
                 )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(items, key = { it.variant.id }) { row ->
-                        InventoryRowCard(row, onClick = { selectedRow = row })
+                    sections.forEach { sectionName ->
+                        val sectionItems = grouped[sectionName] ?: emptyList()
+                        if (sectionItems.isNotEmpty() || !lowStockOnly) {
+                            item(key = sectionName) {
+                                val isExpanded = sectionName in expandedSections
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                    ),
+                                    onClick = {
+                                        expandedSections = if (isExpanded) {
+                                            expandedSections - sectionName
+                                        } else {
+                                            expandedSections + sectionName
+                                        }
+                                    }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "$sectionName (${sectionItems.size})",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                        Icon(
+                                            imageVector = if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                            contentDescription = if (isExpanded) "Collapse" else "Expand"
+                                        )
+                                    }
+                                }
+                            }
+                            if (sectionName in expandedSections) {
+                                items(sectionItems, key = { it.variant.id }) { row ->
+                                    InventoryRowCard(row, onClick = { selectedRow = row })
+                                }
+                            }
+                        }
                     }
                 }
             }

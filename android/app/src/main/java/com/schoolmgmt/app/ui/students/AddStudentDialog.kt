@@ -1,5 +1,7 @@
 package com.schoolmgmt.app.ui.students
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -120,11 +122,7 @@ fun AddStudentDialog(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 )
 
-                ExposedDropdownMenuBox(
-                    expanded = classExpanded,
-                    onExpandedChange = { classExpanded = it },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                ) {
+                Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                     OutlinedTextField(
                         value = selectedClassLabel,
                         onValueChange = {},
@@ -132,9 +130,15 @@ fun AddStudentDialog(
                         label = { Text("Class") },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { classExpanded = true }
+                    )
                     DropdownMenu(
                         expanded = classExpanded,
                         onDismissRequest = { classExpanded = false },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         classes.forEach { option ->
                             DropdownMenuItem(
