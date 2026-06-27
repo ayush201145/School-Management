@@ -1,0 +1,618 @@
+// ============================================================
+// School Management System — Prisma Schema (PostgreSQL)
+// This is the SERVER-SIDE source of truth. The Android app
+// mirrors this structure in Room (SQLite) for offline-first use.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------
+// Enums
+// ----------------------------
+
+enum Role {
+  ADMIN
+  ACCOUNTANT
+  TEACHER
+}
+
+enum FeeStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CHEQUE
+  BANK_TRANSFER
+  CARD
+  OTHER
+}
+
+enum ItemType {
+  BOOK
+  UNIFORM_SUMMER
+  UNIFORM_WINTER
+  OTHER
+}
+
+enum InventoryMovementType {
+  IN              // restock received from supplier (+quantity)
+  OUT             // sold to a student, auto-created by a purchase (-quantity)
+  ADJUSTMENT_IN   // manual correction increasing stock, e.g. found extra units in a recount (+quantity)
+  ADJUSTMENT_OUT  // manual correction decreasing stock, e.g. damaged/lost units (-quantity)
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  LEAVE
+}
+
+enum SyncConflictStatus {
+  PENDING
+  RESOLVED_SERVER
+  RESOLVED_CLIENT
+  RESOLVED_MANUAL
+}
+
+enum WithdrawalReason {
+  TRANSFERRED
+  GRADUATED
+  EXPELLED
+  OTHER
+}
+
+enum RecurrenceFrequency {
+  MONTHLY
+  // Extend later if needed (WEEKLY, YEARLY) — schools overwhelmingly
+  // think in monthly cycles for rent/salaries, so starting narrow
+  // rather than over-building a generic recurrence engine up front.
+}
+
+enum StaffType {
+  TEACHER       // a staff record that's ALSO a Teacher (see Staff.teacherId)
+  ADMIN
+  ACCOUNTANT_STAFF
+  PEON
+  DRIVER
+  OTHER
+}
+
+// ----------------------------
+// Auth / Users
+// ----------------------------
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  passwordHash  String
+  role          Role
+  teacherId     String?   @unique
+  teacher       Teacher?  @relation(fields: [teacherId], references: [id])
+  isActive      Boolean   @default(true)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  isDeleted     Boolean   @default(false)
+  syncedAt      DateTime?
+
+  paymentsRecorded Payment[] @relation("RecordedBy")
+
+  @@index([username])
+}
+
+// ----------------------------
+// Academic structure
+// ----------------------------
+
+model AcademicYear {
+  id          String   @id @default(uuid())
+  label       String   @unique // e.g. "2026-27"
+  startDate   DateTime
+  endDate     DateTime
+  isCurrent   Boolean  @default(false)
+
+  classes       SchoolClass[]
+  feeStructures FeeStructure[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+}
+
+model SchoolClass {
+  id             String   @id @default(uuid())
+  name           String   // e.g. "Class 8"
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  sections       Section[]
+  feeStructures  FeeStructure[]
+  itemVariants   ItemVariant[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@unique([name, academicYearId])
+}
+
+model Section {
+  id            String   @id @default(uuid())
+  name          String   // e.g. "A"
+  classId       String
+  schoolClass   SchoolClass @relation(fields: [classId], references: [id])
+
+  // One teacher is responsible for this section (class teacher model,
+  // not a per-subject matrix).
+  classTeacherId String?
+  classTeacher   Teacher? @relation(fields: [classTeacherId], references: [id])
+
+  students    Student[]
+  attendance  Attendance[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@unique([name, classId])
+  @@index([classTeacherId])
+}
+
+// ----------------------------
+// People
+// ----------------------------
+
+model Student {
+  id              String    @id @default(uuid())
+  admissionNo     String    @unique
+  firstName       String
+  lastName        String
+  dateOfBirth     DateTime?
+  gender          String?
+  guardianName    String?
+  guardianPhone   String?
+  guardianEmail   String?
+  address         String?
+  fatherPhone     String?
+  motherPhone     String?
+  whatsappPhone   String?
+  tuitionFee      Decimal?  @db.Decimal(10, 2)
+  sectionId       String
+  section         Section   @relation(fields: [sectionId], references: [id])
+  admissionDate   DateTime  @default(now())
+  isActive        Boolean   @default(true) // false = withdrawn OR soft-deleted
+
+  // "Quit school" tracking — distinct from isDeleted. A withdrawal is a
+  // real, legitimate life event; the record and full fee/payment
+  // history are kept permanently. isDeleted means the record itself
+  // was a data-entry mistake.
+  withdrawalReason WithdrawalReason?
+  withdrawnDate    DateTime?
+  withdrawalNotes  String?
+
+  studentFees     StudentFee[]
+  attendance      Attendance[]
+  itemPurchases   StudentItemPurchase[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@index([sectionId])
+  @@index([guardianPhone])
+}
+
+model Teacher {
+  id            String   @id @default(uuid())
+  employeeNo    String   @unique
+  firstName     String
+  lastName      String
+  phone         String?
+  email         String?
+  address       String?
+  qualification String?
+  joiningDate   DateTime @default(now())
+  isActive      Boolean  @default(true)
+
+  user                  User?
+  sections              Section[]            // sections where this teacher is the class teacher
+  attendance            TeacherAttendance[]
+  staffRecord           Staff?               // the Staff row that mirrors this teacher, if salary tracking is set up
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+}
+
+// ----------------------------
+// Fees & Billing
+// ----------------------------
+
+model FeeCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique // Tuition, Exam, Transport, Library, Late Fine...
+  description String?
+
+  feeStructures FeeStructure[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+}
+
+// Defines "Class 8 owes ₹2000 Tuition fee, due 10th of month, for 2026-27"
+// Bulk-assign button reads this + a target class/section to generate StudentFee rows.
+model FeeStructure {
+  id              String   @id @default(uuid())
+  feeCategoryId   String
+  feeCategory     FeeCategory @relation(fields: [feeCategoryId], references: [id])
+  classId         String
+  schoolClass     SchoolClass @relation(fields: [classId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear @relation(fields: [academicYearId], references: [id])
+  amount          Decimal  @db.Decimal(10, 2)
+  dueDate         DateTime
+  description     String?  // e.g. "March Exam Fee"
+
+  studentFees     StudentFee[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@index([classId, academicYearId])
+}
+
+// ----------------------------
+// Shop items: books, uniforms (priced by class and/or size)
+// ----------------------------
+
+// A sellable item line, e.g. "Books", "Uniform - Summer", "Uniform - Winter".
+// Holds no price itself — price lives on each ItemVariant, since books
+// vary by class and uniforms vary by size.
+model ItemCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique // "Books", "Uniform - Summer", "Uniform - Winter"
+  type        ItemType
+  description String?
+
+  variants    ItemVariant[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+}
+
+// A priced variant of an ItemCategory.
+// Books:    variant = a specific class's book set  → classId set, size null
+// Uniforms: variant = a specific size               → size set, classId optional
+model ItemVariant {
+  id              String       @id @default(uuid())
+  itemCategoryId  String
+  itemCategory    ItemCategory @relation(fields: [itemCategoryId], references: [id])
+  label           String       // "Play Book Set", "Size 24", "Class 5 Book Set"
+  classId         String?      // optional: ties this variant to one class (mainly for books)
+  schoolClass     SchoolClass? @relation(fields: [classId], references: [id])
+  size            String?      // optional: "20","22","24"..."34" (mainly for uniforms)
+  price           Decimal      @db.Decimal(10, 2)
+  stockQuantity   Int          @default(0) // current units on hand — kept in sync via InventoryTransaction
+  isActive        Boolean      @default(true)
+
+  purchases             StudentItemPurchase[]
+  inventoryTransactions InventoryTransaction[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@index([itemCategoryId])
+  @@index([classId])
+}
+
+// Audit trail of every stock movement for a variant — restocking
+// (IN), sales (OUT, created automatically by a purchase), and manual
+// corrections (ADJUSTMENT, e.g. after a physical stock count).
+// stockQuantity on ItemVariant is the running total; this table is
+// the ledger that explains how it got there.
+model InventoryTransaction {
+  id              String                @id @default(uuid())
+  itemVariantId   String
+  itemVariant     ItemVariant           @relation(fields: [itemVariantId], references: [id])
+  type            InventoryMovementType
+  quantity        Int                   // always positive; direction comes from `type`
+  note            String?               // e.g. "Restock from supplier", "Stock count correction"
+  recordedById    String?
+  purchaseId      String?               // set when type=OUT and it was auto-created by a sale
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@index([itemVariantId])
+  @@index([createdAt])
+}
+
+// One sale of an item variant to one student. Generates a StudentFee
+// under the hood so it rides the existing payment/partial/dues machinery.
+model StudentItemPurchase {
+  id              String      @id @default(uuid())
+  studentId       String
+  student         Student     @relation(fields: [studentId], references: [id])
+  itemVariantId   String
+  itemVariant     ItemVariant @relation(fields: [itemVariantId], references: [id])
+  quantity        Int         @default(1)
+
+  studentFee      StudentFee?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@index([studentId])
+  @@index([itemVariantId])
+}
+
+
+model StudentFee {
+  id              String      @id @default(uuid())
+  studentId       String
+  student         Student     @relation(fields: [studentId], references: [id])
+  feeStructureId  String?     // null if ad-hoc fee not tied to a structure
+  feeStructure    FeeStructure? @relation(fields: [feeStructureId], references: [id])
+  purchaseId      String?     @unique // set if this fee was generated from a book/uniform purchase
+  purchase        StudentItemPurchase? @relation(fields: [purchaseId], references: [id])
+  description     String      // denormalized label, e.g. "March 2026 Exam Fee"
+  amount          Decimal     @db.Decimal(10, 2)
+  dueDate         DateTime
+  discount        Decimal     @default(0) @db.Decimal(10, 2)
+  status          FeeStatus   @default(UNPAID)
+
+  payments        Payment[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@index([studentId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+// One payment transaction against a StudentFee. Multiple payments
+// can exist against one StudentFee (covers partial-payment flows).
+model Payment {
+  id            String      @id @default(uuid())
+  studentFeeId  String
+  studentFee    StudentFee  @relation(fields: [studentFeeId], references: [id])
+  amount        Decimal     @db.Decimal(10, 2)
+  mode          PaymentMode
+  referenceNo   String?     // cheque no / UPI txn id / etc.
+  paidAt        DateTime    @default(now())
+  recordedById  String
+  recordedBy    User        @relation("RecordedBy", fields: [recordedById], references: [id])
+  notes         String?
+
+  receipt       Receipt?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@index([studentFeeId])
+  @@index([paidAt])
+}
+
+model Receipt {
+  id          String   @id @default(uuid())
+  paymentId   String   @unique
+  payment     Payment  @relation(fields: [paymentId], references: [id])
+  receiptNo   String   @unique
+  pdfUrl      String?  // path/URL once generated & uploaded
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+}
+
+// ----------------------------
+// Attendance
+// ----------------------------
+
+model Attendance {
+  id          String           @id @default(uuid())
+  studentId   String
+  student     Student          @relation(fields: [studentId], references: [id])
+  sectionId   String
+  section     Section          @relation(fields: [sectionId], references: [id])
+  date        DateTime
+  status      AttendanceStatus
+  markedById  String?          // teacher User id who marked it
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@unique([studentId, date])
+  @@index([sectionId, date])
+}
+
+model TeacherAttendance {
+  id          String           @id @default(uuid())
+  teacherId   String
+  teacher     Teacher          @relation(fields: [teacherId], references: [id])
+  date        DateTime
+  status      AttendanceStatus
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@unique([teacherId, date])
+}
+
+// ----------------------------
+// Finance: staff, expenses, salaries
+// ----------------------------
+
+// Generic staff record — covers teachers (linked via teacherId, so a
+// teacher's profile data isn't duplicated) AND non-teaching staff
+// (admin, accountant office staff, peon, driver...) who have no
+// Teacher record at all. Salaries are tracked against THIS model
+// uniformly, regardless of role.
+model Staff {
+  id          String    @id @default(uuid())
+  name        String
+  type        StaffType
+  teacherId   String?   @unique // set only if this staff member IS a teacher
+  teacher     Teacher?  @relation(fields: [teacherId], references: [id])
+  phone       String?
+  monthlySalary Decimal? @db.Decimal(10, 2) // expected salary; actual payments are separate rows (partial/advance support)
+  joiningDate DateTime  @default(now())
+  isActive    Boolean   @default(true)
+
+  salaryPayments SalaryPayment[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+}
+
+// One salary disbursement to one staff member for one period. Multiple
+// rows per month are allowed (e.g. an advance + the remainder), same
+// "ledger, not a single mutable balance" pattern as Payment/StudentFee.
+model SalaryPayment {
+  id          String   @id @default(uuid())
+  staffId     String
+  staff       Staff    @relation(fields: [staffId], references: [id])
+  amount      Decimal  @db.Decimal(10, 2)
+  forMonth    Int      // 1-12
+  forYear     Int
+  paidAt      DateTime @default(now())
+  mode        PaymentMode
+  referenceNo String?
+  notes       String?
+  recordedById String
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@index([staffId, forYear, forMonth])
+}
+
+// Expense categories — Rent, Utilities, Office Supplies (pages, ink,
+// markers...), Maintenance, Transport fuel, etc. Distinct from
+// ItemCategory: ItemCategory is stock the school SELLS to students
+// (books/uniforms); ExpenseCategory is money the school SPENDS.
+model ExpenseCategory {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+
+  expenses       Expense[]
+  recurringTemplates RecurringExpenseTemplate[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+}
+
+// A template for a recurring expense (e.g. "Rent, ₹15000, every
+// month"). Does NOT itself represent money spent — see RecurringExpenseTemplate
+// vs Expense below. A scheduled job / manual "generate this month's
+// recurring expenses" action reads active templates and creates real
+// Expense rows from them (mirrors the FeeStructure -> StudentFee
+// bulk-assign pattern already used for student fees).
+model RecurringExpenseTemplate {
+  id                String          @id @default(uuid())
+  expenseCategoryId String
+  expenseCategory   ExpenseCategory @relation(fields: [expenseCategoryId], references: [id])
+  label             String          // "Office Rent", "Internet Bill"
+  amount            Decimal         @db.Decimal(10, 2)
+  frequency         RecurrenceFrequency @default(MONTHLY)
+  dayOfMonth        Int             @default(1) // which day of the month this is due
+  isActive          Boolean         @default(true)
+
+  generatedExpenses Expense[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+}
+
+// One actual expense — money the school spent. May trace back to a
+// RecurringExpenseTemplate (auto-generated) or be a one-off entry.
+model Expense {
+  id                  String          @id @default(uuid())
+  expenseCategoryId   String
+  expenseCategory     ExpenseCategory @relation(fields: [expenseCategoryId], references: [id])
+  recurringTemplateId String?
+  recurringTemplate   RecurringExpenseTemplate? @relation(fields: [recurringTemplateId], references: [id])
+  description         String
+  amount               Decimal        @db.Decimal(10, 2)
+  spentAt              DateTime       @default(now())
+  mode                 PaymentMode
+  referenceNo          String?
+  recordedById         String
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  isDeleted   Boolean   @default(false)
+  syncedAt    DateTime?
+
+  @@index([expenseCategoryId])
+  @@index([spentAt])
+}
+
+
+
+// Tracks conflicts flagged during sync for manual admin review.
+model SyncConflict {
+  id            String              @id @default(uuid())
+  tableName     String              // e.g. "StudentFee"
+  recordId      String              // id of the conflicting row
+  clientData    Json                // payload as it was on device
+  serverData    Json                // payload as it was on server
+  clientUserId  String?
+  status        SyncConflictStatus  @default(PENDING)
+  resolvedById  String?
+  resolvedAt    DateTime?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([tableName, recordId])
+}

@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: school-mgmt-backend
+    runtime: node
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Set in Render Dashboard (your Neon PostgreSQL connection string)
+      - key: JWT_SECRET
+        sync: false # Set in Render Dashboard (a strong random security key)

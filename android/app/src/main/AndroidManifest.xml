@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Needed to call the backend API -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Needed so WorkManager's sync job can check connectivity before attempting a sync -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:name=".SchoolManagementApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.SchoolManagement"
+        android:usesCleartextTraffic="true">
+        <!--
+          usesCleartextTraffic="true" allows plain http:// during development
+          (e.g. talking to http://10.0.2.2:4000). Remove this once your
+          backend is served over https:// in production — shipping an app
+          that allows cleartext traffic in production is a security risk.
+        -->
+
+        <!--
+          REQUIRED for Hilt+WorkManager: disables WorkManager's default
+          androidx.startup auto-initializer so our custom Configuration
+          (set in SchoolManagementApp, using HiltWorkerFactory) is the
+          one actually used. Without this block, SyncWorker crashes at
+          runtime with NoSuchMethodException the first time it runs,
+          because the default WorkerFactory can't supply its injected
+          SyncRepository dependency.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.SchoolManagement">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

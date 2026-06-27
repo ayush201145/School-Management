@@ -1,0 +1,118 @@
+package com.schoolmgmt.app.data.repository
+
+import androidx.room.withTransaction
+import com.schoolmgmt.app.data.local.AppDatabase
+import com.schoolmgmt.app.data.local.dao.DueRow
+import com.schoolmgmt.app.data.local.dao.TransactionRow
+import com.schoolmgmt.app.data.local.entity.FeeStatus
+import com.schoolmgmt.app.data.local.entity.PaymentEntity
+import com.schoolmgmt.app.data.local.entity.PaymentMode
+import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
+import kotlinx.coroutines.flow.Flow
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/**
+ * Thrown when a payment would exceed the remaining balance on a fee —
+ * the LOCAL mirror of the 400 error the backend's paymentController.js
+ * returns for the same situation. Keeping the same business rule on
+ * both sides means the user gets the same feedback whether they're
+ * online or offline.
+ */
+class OverpaymentException(message: String) : Exception(message)
+
+@Singleton
+class FeeRepository @Inject constructor(
+    private val db: AppDatabase,
+) {
+    private val studentFeeDao = db.studentFeeDao()
+    private val paymentDao = db.paymentDao()
+
+    fun observeDues(sectionId: String? = null, overdueOnly: Boolean = false): Flow<List<DueRow>> =
+        studentFeeDao.observeDues(sectionId = sectionId, overdueOnly = overdueOnly)
+
+    fun observeTransactions(
+        fromMillis: Long? = null,
+        toMillis: Long? = null,
+        studentId: String? = null,
+    ): Flow<List<TransactionRow>> =
+        paymentDao.observeTransactions(fromMillis, toMillis, studentId)
+
+    fun observeFeesForStudent(studentId: String) = studentFeeDao.observeByStudent(studentId)
+    fun observePaymentsForFee(studentFeeId: String) = paymentDao.observeForFee(studentFeeId)
+
+    /** Remaining balance on a fee — (amount - discount) minus whatever's already been paid. */
+    suspend fun getRemainingBalance(studentFeeId: String): Double {
+        val fee = studentFeeDao.getById(studentFeeId) ?: return 0.0
+        val alreadyPaid = paymentDao.getTotalPaidForFee(studentFeeId)
+        return (fee.amount - fee.discount - alreadyPaid).coerceAtLeast(0.0)
+    }
+
+    /**
+     * Records a payment against a StudentFee and recalculates its
+     * status, ATOMICALLY — both writes happen in one Room transaction
+     * (db.withTransaction), so a crash or process death between the two
+     * steps can never leave a payment recorded with a stale status, or
+     * vice versa. This is the local mirror of the backend's
+     * feeStatusService.recalculateStudentFeeStatus, called from
+     * paymentController.createPayment.
+     *
+     * recordedById should be the locally-cached current user's id (see
+     * AuthRepository) — payments recorded offline still need an owner
+     * for audit purposes, same as the backend's Payment.recordedById.
+     */
+    suspend fun recordPayment(
+        studentFeeId: String,
+        amount: Double,
+        mode: PaymentMode,
+        recordedById: String,
+        referenceNo: String? = null,
+        notes: String? = null,
+        paidAt: Long = System.currentTimeMillis(),
+    ): PaymentEntity = db.withTransaction {
+        val fee = studentFeeDao.getById(studentFeeId)
+            ?: throw IllegalArgumentException("StudentFee $studentFeeId not found")
+
+        val alreadyPaid = paymentDao.getTotalPaidForFee(studentFeeId)
+        val payable = fee.amount - fee.discount
+        val remaining = payable - alreadyPaid
+
+        // Same overpayment guard as the backend — reject rather than
+        // silently allow a negative balance, even while offline.
+        if (amount > remaining + 0.01) {
+            throw OverpaymentException(
+                "Payment of $amount exceeds remaining balance of ${"%.2f".format(remaining)} for this fee"
+            )
+        }
+
+        val now = System.currentTimeMillis()
+        val payment = PaymentEntity(
+            id = UUID.randomUUID().toString(),
+            studentFeeId = studentFeeId,
+            amount = amount,
+            mode = mode,
+            referenceNo = referenceNo,
+            paidAt = paidAt,
+            recordedById = recordedById,
+            notes = notes,
+            updatedAt = now,
+        )
+        paymentDao.upsert(payment)
+
+        val newTotalPaid = alreadyPaid + amount
+        val newStatus = when {
+            newTotalPaid <= 0.0 -> FeeStatus.UNPAID
+            newTotalPaid >= payable -> FeeStatus.PAID
+            else -> FeeStatus.PARTIAL
+        }
+        if (newStatus != fee.status) {
+            studentFeeDao.update(fee.copy(status = newStatus, updatedAt = now))
+        }
+
+        payment
+    }
+
+    /** Creates an ad-hoc or structure-derived StudentFee row (used by bulk-assign, see FeeStructureRepository). */
+    suspend fun createStudentFee(fee: StudentFeeEntity) = studentFeeDao.upsert(fee)
+}

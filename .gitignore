@@ -1,0 +1,30 @@
+# Dependencies
+backend/node_modules/
+
+# Environment configurations
+backend/.env
+android/local.properties
+
+# Build outputs
+android/.gradle/
+android/build/
+android/app/build/
+android/app/build/outputs/apk/
+android/**/*.apk
+android/.cxx/
+android/captures/
+
+# IDE files
+.idea/
+*.iml
+android/.idea/
+android/*.iml
+
+# Logs
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+
+# OS specific files
+.DS_Store
+Thumbs.db
