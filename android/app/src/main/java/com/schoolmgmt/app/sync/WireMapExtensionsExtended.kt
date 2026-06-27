@@ -16,6 +16,20 @@ fun AcademicYearEntity.toWireMap(): Map<String, Any?> = mapOf(
     "isCurrent" to isCurrent,
 )
 
+fun com.schoolmgmt.app.data.local.entity.FeeCategoryEntity.toWireMap(): Map<String, Any?> = mapOf(
+    "name" to name,
+    "description" to description,
+)
+
+fun com.schoolmgmt.app.data.local.entity.FeeStructureEntity.toWireMap(): Map<String, Any?> = mapOf(
+    "feeCategoryId" to feeCategoryId,
+    "classId" to classId,
+    "academicYearId" to academicYearId,
+    "amount" to amount,
+    "dueDate" to IsoDates.toIsoString(dueDate),
+    "description" to description,
+)
+
 fun SectionEntity.toWireMap(): Map<String, Any?> = mapOf(
     "name" to name,
     "classId" to classId,

@@ -28,6 +28,16 @@ async function main() {
     console.log("Created academic year 2026-27");
   }
 
+  // 1.5 Seed default fee categories
+  const FEE_CATEGORIES = ["Tuition Fee", "Admission Fee", "Exam Fee", "Transport Fee", "Library Fee", "Sports Fee"];
+  for (const name of FEE_CATEGORIES) {
+    let exists = await prisma.feeCategory.findFirst({ where: { name } });
+    if (!exists) {
+      await prisma.feeCategory.create({ data: { name, description: `${name} category` } });
+      console.log(`Created fee category: ${name}`);
+    }
+  }
+
   // 2. Classes: Play, Nursery, LKG, UKG, Class 1..5
   const classMap = {};
   for (const name of CLASS_NAMES) {

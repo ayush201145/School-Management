@@ -4,6 +4,8 @@ import com.schoolmgmt.app.data.local.AppDatabase
 import com.schoolmgmt.app.data.local.entity.ItemCategoryEntity
 import com.schoolmgmt.app.data.local.entity.ItemVariantEntity
 import com.schoolmgmt.app.data.local.entity.InventoryTransactionEntity
+import com.schoolmgmt.app.data.local.entity.FeeCategoryEntity
+import com.schoolmgmt.app.data.local.entity.FeeStructureEntity
 import com.schoolmgmt.app.data.local.entity.ItemType
 import com.schoolmgmt.app.data.local.entity.InventoryMovementType
 import com.schoolmgmt.app.data.local.entity.AttendanceEntity
@@ -304,4 +306,52 @@ object InventoryTransactionSyncAdapter : SyncTableAdapter {
     }
 
     override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.inventoryTransactionDao().markSynced(id, syncedAt)
+}
+
+object FeeCategorySyncAdapter : SyncTableAdapter {
+    override val tableName = "FeeCategory"
+
+    override suspend fun getUnsynced(db: AppDatabase): List<Pair<String, Map<String, Any?>>> =
+        db.feeCategoryDao().getUnsyncedChanges().map { it.id to it.toWireMap() }
+
+    override suspend fun applyFromServer(db: AppDatabase, id: String, fields: Map<String, Any?>, updatedAtMillis: Long, isDeleted: Boolean) {
+        val existing = db.feeCategoryDao().getById(id)
+        val merged = FeeCategoryEntity(
+            id = id,
+            name = (fields["name"] as? String) ?: existing?.name ?: "",
+            description = (fields["description"] as? String) ?: existing?.description,
+            updatedAt = updatedAtMillis,
+            isDeleted = isDeleted,
+            syncedAt = updatedAtMillis,
+        )
+        db.feeCategoryDao().upsert(merged)
+    }
+
+    override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.feeCategoryDao().markSynced(id, syncedAt)
+}
+
+object FeeStructureSyncAdapter : SyncTableAdapter {
+    override val tableName = "FeeStructure"
+
+    override suspend fun getUnsynced(db: AppDatabase): List<Pair<String, Map<String, Any?>>> =
+        db.feeStructureDao().getUnsyncedChanges().map { it.id to it.toWireMap() }
+
+    override suspend fun applyFromServer(db: AppDatabase, id: String, fields: Map<String, Any?>, updatedAtMillis: Long, isDeleted: Boolean) {
+        val existing = db.feeStructureDao().getById(id)
+        val merged = FeeStructureEntity(
+            id = id,
+            feeCategoryId = (fields["feeCategoryId"] as? String) ?: existing?.feeCategoryId ?: "",
+            classId = (fields["classId"] as? String) ?: existing?.classId ?: "",
+            academicYearId = (fields["academicYearId"] as? String) ?: existing?.academicYearId ?: "",
+            amount = (fields["amount"] as? Double) ?: existing?.amount ?: 0.0,
+            dueDate = (fields["dueDate"] as? String)?.let(IsoDates::parseToMillis) ?: existing?.dueDate ?: updatedAtMillis,
+            description = (fields["description"] as? String) ?: existing?.description,
+            updatedAt = updatedAtMillis,
+            isDeleted = isDeleted,
+            syncedAt = updatedAtMillis,
+        )
+        db.feeStructureDao().upsert(merged)
+    }
+
+    override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.feeStructureDao().markSynced(id, syncedAt)
 }

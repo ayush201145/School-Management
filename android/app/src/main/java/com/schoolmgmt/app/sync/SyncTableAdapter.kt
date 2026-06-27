@@ -107,8 +107,10 @@ object TeacherSyncAdapter : SyncTableAdapter {
 val SYNC_REGISTRY: List<SyncTableAdapter> = listOf(
     // Parents before children — see ordering note above.
     AcademicYearSyncAdapter,
+    FeeCategorySyncAdapter,
     TeacherSyncAdapter,
     SchoolClassSyncAdapter,
+    FeeStructureSyncAdapter,
     SectionSyncAdapter,
     StudentSyncAdapter,
     StudentFeeSyncAdapter,

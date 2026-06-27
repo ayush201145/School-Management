@@ -11,6 +11,14 @@ const SYNC_TABLES = {
     prismaModel: "academicYear",
     writableFields: ["label", "startDate", "endDate", "isCurrent"],
   },
+  FeeCategory: {
+    prismaModel: "feeCategory",
+    writableFields: ["name", "description"],
+  },
+  FeeStructure: {
+    prismaModel: "feeStructure",
+    writableFields: ["feeCategoryId", "classId", "academicYearId", "amount", "dueDate", "description"],
+  },
   Student: {
     prismaModel: "student",
     writableFields: [

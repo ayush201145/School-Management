@@ -160,6 +160,8 @@ class SyncRepository @Inject constructor(
         "Staff" -> db.staffDao().getById(id)?.updatedAt
         "SalaryPayment" -> db.salaryPaymentDao().getById(id)?.updatedAt
         "RecurringExpenseTemplate" -> db.recurringExpenseTemplateDao().getById(id)?.updatedAt
+        "FeeCategory" -> db.feeCategoryDao().getById(id)?.updatedAt
+        "FeeStructure" -> db.feeStructureDao().getById(id)?.updatedAt
         else -> null
     } ?: System.currentTimeMillis()
 
