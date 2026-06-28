@@ -96,7 +96,12 @@ fun SchoolManagementNavHost(navController: NavHostController = rememberNavContro
         }
 
         composable(Routes.DUES_REPORT) {
-            DuesScreen(onBack = { navController.popBackStack() })
+            DuesScreen(
+                onStudentClick = { studentId ->
+                    navController.navigate(Routes.studentDetail(studentId))
+                },
+                onBack = { navController.popBackStack() },
+            )
         }
 
         composable(Routes.TRANSACTIONS) {

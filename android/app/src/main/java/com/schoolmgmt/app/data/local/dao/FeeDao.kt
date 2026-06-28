@@ -71,6 +71,8 @@ data class DueRow(
     val studentLastName: String,
     val admissionNo: String,
     val guardianPhone: String?,
+    val classId: String,
+    val className: String,
 )
 
 @Dao
@@ -141,9 +143,13 @@ interface StudentFeeDao {
             s.firstName AS studentFirstName,
             s.lastName AS studentLastName,
             s.admissionNo AS admissionNo,
-            s.guardianPhone AS guardianPhone
+            s.guardianPhone AS guardianPhone,
+            sec.classId AS classId,
+            c.name AS className
         FROM student_fees sf
         INNER JOIN students s ON s.id = sf.studentId
+        INNER JOIN sections sec ON sec.id = s.sectionId
+        INNER JOIN school_classes c ON c.id = sec.classId
         WHERE sf.isDeleted = 0 
           AND sf.status IN ('UNPAID', 'PARTIAL')
           AND (:sectionId IS NULL OR s.sectionId = :sectionId)
