@@ -121,6 +121,95 @@ async function updateSection(req, res) {
   res.json(section);
 }
 
+async function rolloverAcademicYear(req, res) {
+  const { fromYearId, toYearId } = req.body;
+  if (!fromYearId || !toYearId) {
+    throw new ApiError(400, "fromYearId and toYearId are required");
+  }
+
+  const fromYear = await prisma.academicYear.findUnique({ where: { id: fromYearId } });
+  const toYear = await prisma.academicYear.findUnique({ where: { id: toYearId } });
+  if (!fromYear || !toYear) {
+    throw new ApiError(404, "One or both academic years not found");
+  }
+
+  const bookCategory = await prisma.itemCategory.findFirst({ where: { type: "BOOK" } });
+  if (!bookCategory) {
+    throw new ApiError(404, "Books category not found. Please seed the database first.");
+  }
+
+  // Fetch classes for both years
+  const oldClasses = await prisma.schoolClass.findMany({ where: { academicYearId: fromYearId, isDeleted: false } });
+  const newClasses = await prisma.schoolClass.findMany({ where: { academicYearId: toYearId, isDeleted: false } });
+
+  const oldClassIds = oldClasses.map(c => c.id);
+
+  // Find all old book variants linked to old classes
+  const oldVariants = await prisma.itemVariant.findMany({
+    where: {
+      itemCategoryId: bookCategory.id,
+      classId: { in: oldClassIds },
+      isDeleted: false,
+    },
+  });
+
+  const results = [];
+
+  await prisma.$transaction(async (tx) => {
+    for (const oldVariant of oldVariants) {
+      const oldClass = oldClasses.find(c => c.id === oldVariant.classId);
+      if (!oldClass) continue;
+
+      // Find matching class in the new academic year
+      const newClass = newClasses.find(c => c.name === oldClass.name);
+      if (!newClass) continue; // New class level doesn't exist in the target year
+
+      // 1. Rename old variant to include the fromYear label
+      const cleanedLabel = oldVariant.label.replace(/\s*\(\d{4}-\d{2}\)/g, ""); // strip existing years
+      const oldYearLabel = `${cleanedLabel} (${fromYear.label})`;
+      await tx.itemVariant.update({
+        where: { id: oldVariant.id },
+        data: { label: oldYearLabel },
+      });
+
+      // 2. Check if a variant already exists for the new class
+      let newVariant = await tx.itemVariant.findFirst({
+        where: { itemCategoryId: bookCategory.id, classId: newClass.id, isDeleted: false },
+      });
+
+      const newYearLabel = `${cleanedLabel} (${toYear.label})`;
+
+      if (!newVariant) {
+        // Create new year variant with price copied, and stock set to 0
+        newVariant = await tx.itemVariant.create({
+          data: {
+            itemCategoryId: bookCategory.id,
+            classId: newClass.id,
+            label: newYearLabel,
+            price: oldVariant.price,
+            costPrice: oldVariant.costPrice,
+            stockQuantity: 0,
+          },
+        });
+        results.push({ className: oldClass.name, status: "created", newVariantId: newVariant.id });
+      } else {
+        // Just update its label and prices
+        await tx.itemVariant.update({
+          where: { id: newVariant.id },
+          data: {
+            label: newYearLabel,
+            price: oldVariant.price,
+            costPrice: oldVariant.costPrice,
+          },
+        });
+        results.push({ className: oldClass.name, status: "updated", newVariantId: newVariant.id });
+      }
+    }
+  });
+
+  res.json({ success: true, processed: results });
+}
+
 module.exports = {
   listAcademicYears,
   createAcademicYear,
@@ -129,4 +218,5 @@ module.exports = {
   listSections,
   createSection,
   updateSection,
+  rolloverAcademicYear,
 };
