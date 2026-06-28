@@ -119,6 +119,30 @@ interface StudentDao {
     )
     fun searchByAcademicYear(yearId: String, query: String): Flow<List<StudentEntity>>
 
+    @Query(
+        """
+        SELECT s.* FROM students s
+        INNER JOIN sections sec ON sec.id = s.sectionId
+        WHERE s.isDeleted = 0 AND sec.classId = :classId
+        ORDER BY s.firstName ASC
+        """
+    )
+    fun observeByClass(classId: String): Flow<List<StudentEntity>>
+
+    @Query(
+        """
+        SELECT s.* FROM students s
+        INNER JOIN sections sec ON sec.id = s.sectionId
+        WHERE s.isDeleted = 0 AND sec.classId = :classId
+        AND (s.firstName LIKE '%' || :query || '%' 
+             OR s.lastName LIKE '%' || :query || '%' 
+             OR s.admissionNo LIKE '%' || :query || '%'
+             OR s.guardianPhone LIKE '%' || :query || '%')
+        ORDER BY s.firstName ASC
+        """
+    )
+    fun searchByClass(classId: String, query: String): Flow<List<StudentEntity>>
+
     @Query("SELECT admissionNo FROM students")
     suspend fun getAllAdmissionNumbers(): List<String>
 

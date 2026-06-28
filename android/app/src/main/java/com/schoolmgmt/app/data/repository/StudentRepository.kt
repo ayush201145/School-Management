@@ -15,9 +15,11 @@ class StudentRepository @Inject constructor(
 
     fun observeAll() = studentDao.observeAll()
     fun observeByAcademicYear(yearId: String) = studentDao.observeByAcademicYear(yearId)
+    fun observeByClass(classId: String) = studentDao.observeByClass(classId)
     fun observeBySection(sectionId: String) = studentDao.observeBySection(sectionId)
     fun search(query: String) = studentDao.search(query)
     fun searchByAcademicYear(yearId: String, query: String) = studentDao.searchByAcademicYear(yearId, query)
+    fun searchByClass(classId: String, query: String) = studentDao.searchByClass(classId, query)
     suspend fun getById(id: String) = studentDao.getById(id)
 
     /**
