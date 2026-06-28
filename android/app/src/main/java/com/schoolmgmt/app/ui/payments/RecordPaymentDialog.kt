@@ -31,7 +31,7 @@ fun RecordPaymentDialog(
     feeDescription: String,
     suggestedAmount: Double,
     onDismiss: () -> Unit,
-    onPaymentRecorded: () -> Unit,
+    onPaymentRecorded: (receiptNo: String, paidAmount: Double, mode: String) -> Unit,
     viewModel: RecordPaymentViewModel = hiltViewModel(),
 ) {
     var amountText by remember { mutableStateOf(if (suggestedAmount > 0) "%.2f".format(suggestedAmount) else "") }
@@ -77,7 +77,7 @@ fun RecordPaymentDialog(
                 OutlinedTextField(
                     value = referenceNo,
                     onValueChange = { referenceNo = it },
-                    label = { Text("Reference no. (optional)") },
+                    label = { Text("Physical Bill / Receipt No. (optional)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
                 )
@@ -124,7 +124,10 @@ fun RecordPaymentDialog(
                         mode = selectedMode,
                         referenceNo = referenceNo,
                         notes = notes,
-                        onSuccess = onPaymentRecorded,
+                        onSuccess = {
+                            val finalRef = referenceNo.ifBlank { "TXN-${System.currentTimeMillis() % 100000}" }
+                            onPaymentRecorded(finalRef, amount, selectedMode.name)
+                        },
                     )
                 },
             ) {
@@ -143,7 +146,7 @@ fun RecordBulkPaymentDialog(
     studentId: String,
     suggestedAmount: Double,
     onDismiss: () -> Unit,
-    onPaymentRecorded: () -> Unit,
+    onPaymentRecorded: (receiptNo: String, paidAmount: Double, mode: String) -> Unit,
     viewModel: RecordPaymentViewModel = hiltViewModel(),
 ) {
     var amountText by remember { mutableStateOf(if (suggestedAmount > 0) "%.2f".format(suggestedAmount) else "") }
@@ -190,7 +193,7 @@ fun RecordBulkPaymentDialog(
                 OutlinedTextField(
                     value = referenceNo,
                     onValueChange = { referenceNo = it },
-                    label = { Text("Reference no. (optional)") },
+                    label = { Text("Physical Bill / Receipt No. (optional)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
                 )
@@ -237,7 +240,10 @@ fun RecordBulkPaymentDialog(
                         mode = selectedMode,
                         referenceNo = referenceNo,
                         notes = notes,
-                        onSuccess = onPaymentRecorded,
+                        onSuccess = {
+                            val finalRef = referenceNo.ifBlank { "TXN-${System.currentTimeMillis() % 100000}" }
+                            onPaymentRecorded(finalRef, amount, selectedMode.name)
+                        },
                     )
                 },
             ) {

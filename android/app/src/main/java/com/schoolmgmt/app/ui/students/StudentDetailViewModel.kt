@@ -20,6 +20,8 @@ import javax.inject.Inject
 import com.schoolmgmt.app.data.local.entity.FeeStatus
 import com.schoolmgmt.app.data.local.entity.AcademicYearEntity
 
+import kotlinx.coroutines.flow.first
+
 data class StudentDetailUiState(
     val student: StudentEntity? = null,
     val fees: List<StudentFeeEntity> = emptyList(),
@@ -98,6 +100,11 @@ class StudentDetailViewModel @Inject constructor(
 
     suspend fun getRemainingBalance(studentFeeId: String): Double =
         feeRepository.getRemainingBalance(studentFeeId)
+
+    suspend fun getClassNameForSection(sectionId: String): String {
+        val list = academicRepository.observeAllSectionsWithClassName().first()
+        return list.find { it.id == sectionId }?.let { "${it.className} - ${it.sectionName}" } ?: "General"
+    }
 
     suspend fun getTotalDuesBalance(): Double {
         var balance = 0.0

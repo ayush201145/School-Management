@@ -6,6 +6,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Needed so WorkManager's sync job can check connectivity before attempting a sync -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Bluetooth Permissions for Thermal Printing -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <application
         android:name=".SchoolManagementApp"
@@ -20,6 +26,17 @@
           backend is served over https:// in production — shipping an app
           that allows cleartext traffic in production is a security risk.
         -->
+
+        <!-- Secure Sharing Provider for Receipts -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <!--
           REQUIRED for Hilt+WorkManager: disables WorkManager's default

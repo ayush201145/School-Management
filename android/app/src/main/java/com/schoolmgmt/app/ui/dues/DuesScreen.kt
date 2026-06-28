@@ -9,7 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
@@ -157,12 +164,37 @@ fun DuesScreen(
                 )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(dues, key = { it.studentId }) { due ->
-                        AggregatedDueRowCard(due, onClick = { onStudentClick(due.studentId) })
+                    itemsIndexed(dues, key = { _, due -> due.studentId }) { index, due ->
+                        StaggeredItemEntrance(index = index) {
+                            AggregatedDueRowCard(due, onClick = { onStudentClick(due.studentId) })
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun StaggeredItemEntrance(
+    index: Int,
+    content: @Composable () -> Unit
+) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay((index * 40).coerceAtMost(300).toLong())
+        visible = true
+    }
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(
+            initialOffsetY = { it / 2 },
+            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow)
+        ) + fadeIn(
+            animationSpec = spring(stiffness = Spring.StiffnessLow)
+        )
+    ) {
+        content()
     }
 }
 

@@ -34,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,8 +46,21 @@ import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
 import com.schoolmgmt.app.data.local.entity.WithdrawalReason
 import com.schoolmgmt.app.ui.payments.RecordPaymentDialog
 import com.schoolmgmt.app.ui.payments.RecordBulkPaymentDialog
+import com.schoolmgmt.app.ui.payments.ReceiptOptionsDialog
 import com.schoolmgmt.app.ui.purchases.PurchaseItemDialog
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+
+data class ReceiptData(
+    val receiptNo: String,
+    val paidAmount: Double,
+    val mode: String,
+    val studentName: String,
+    val admissionNo: String,
+    val className: String,
+    val particulars: String,
+    val remainingDues: Double,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,6 +71,9 @@ fun StudentDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val academicYears by viewModel.academicYears.collectAsState()
+    
+    val scope = rememberCoroutineScope()
+    var receiptOptionsData by remember { mutableStateOf<ReceiptData?>(null) }
     
     var showWithdrawDialog by remember { mutableStateOf(false) }
     var showMigrateDialog by remember { mutableStateOf(false) }
@@ -162,18 +179,35 @@ fun StudentDetailScreen(
     }
 
     feeForPayment?.let { fee ->
+        val student = uiState.student
         var remainingBalance by remember(fee.id) { mutableStateOf<Double?>(null) }
         LaunchedEffect(fee.id) {
             remainingBalance = viewModel.getRemainingBalance(fee.id)
         }
 
-        if (remainingBalance != null) {
+        if (remainingBalance != null && student != null) {
             RecordPaymentDialog(
                 studentFeeId = fee.id,
                 feeDescription = fee.description,
                 suggestedAmount = remainingBalance ?: 0.0,
                 onDismiss = { feeForPayment = null },
-                onPaymentRecorded = { feeForPayment = null },
+                onPaymentRecorded = { receiptNo, paidAmount, mode ->
+                    feeForPayment = null
+                    scope.launch {
+                        val cName = viewModel.getClassNameForSection(student.sectionId)
+                        val totalDues = viewModel.getTotalDuesBalance()
+                        receiptOptionsData = ReceiptData(
+                            receiptNo = receiptNo,
+                            paidAmount = paidAmount,
+                            mode = mode,
+                            studentName = "${student.firstName} ${student.lastName}",
+                            admissionNo = student.admissionNo,
+                            className = cName,
+                            particulars = fee.description,
+                            remainingDues = totalDues
+                        )
+                    }
+                },
             )
         }
     }
@@ -187,19 +221,50 @@ fun StudentDetailScreen(
     }
 
     if (showBulkPaymentDialog) {
+        val student = uiState.student
         var totalOutstanding by remember { mutableStateOf<Double?>(null) }
         LaunchedEffect(studentId) {
             totalOutstanding = viewModel.getTotalDuesBalance()
         }
 
-        if (totalOutstanding != null) {
+        if (totalOutstanding != null && student != null) {
             RecordBulkPaymentDialog(
                 studentId = studentId,
                 suggestedAmount = totalOutstanding ?: 0.0,
                 onDismiss = { showBulkPaymentDialog = false },
-                onPaymentRecorded = { showBulkPaymentDialog = false }
+                onPaymentRecorded = { receiptNo, paidAmount, mode ->
+                    showBulkPaymentDialog = false
+                    scope.launch {
+                        val cName = viewModel.getClassNameForSection(student.sectionId)
+                        val totalDues = viewModel.getTotalDuesBalance()
+                        receiptOptionsData = ReceiptData(
+                            receiptNo = receiptNo,
+                            paidAmount = paidAmount,
+                            mode = mode,
+                            studentName = "${student.firstName} ${student.lastName}",
+                            admissionNo = student.admissionNo,
+                            className = cName,
+                            particulars = "Bulk Dues Payment (FIFO)",
+                            remainingDues = totalDues
+                        )
+                    }
+                }
             )
         }
+    }
+
+    receiptOptionsData?.let { data ->
+        ReceiptOptionsDialog(
+            receiptNo = data.receiptNo,
+            studentName = data.studentName,
+            admissionNo = data.admissionNo,
+            className = data.className,
+            particulars = data.particulars,
+            paidAmount = data.paidAmount,
+            mode = data.mode,
+            remainingDues = data.remainingDues,
+            onDismiss = { receiptOptionsData = null }
+        )
     }
 }
 
