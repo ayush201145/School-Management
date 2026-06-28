@@ -19,7 +19,7 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 
 // Item categories (Books, Uniform - Summer A, Uniform - Summer B, Uniform - Winter)
 router.get("/item-categories", requireAuth, listItemCategories);
-router.post("/item-categories", requireAuth, requireRole("ADMIN"), createItemCategory);
+router.post("/item-categories", requireAuth, requireRole("MASTER"), createItemCategory);
 
 // Item variants (priced per class for books, per size for uniforms)
 router.get("/item-variants", requireAuth, listItemVariants);

@@ -30,6 +30,10 @@ function requireRole(...allowedRoles) {
     if (!req.user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
+    // MASTER role inherits all system permissions
+    if (req.user.role === "MASTER") {
+      return next();
+    }
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ error: "Insufficient permissions for this action" });
     }
