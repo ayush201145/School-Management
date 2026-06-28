@@ -2,17 +2,18 @@ package com.schoolmgmt.app.ui.inventory
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -48,27 +49,25 @@ fun InventoryScreen(
     val items by viewModel.items.collectAsState()
     val lowStockOnly by viewModel.isLowStockOnly.collectAsState()
     var selectedRow by remember { mutableStateOf<InventoryRow?>(null) }
+    var selectedCategory by remember { mutableStateOf("Books") }
 
-    val grouped = items.groupBy { row ->
+    val filteredItems = items.filter { row ->
         val name = row.categoryName.lowercase()
-        when {
+        val mappedCategory = when {
             name.contains("book") -> "Books"
             name.contains("summer (regular)") || name.contains("summer regular") -> "Summer Uniform (Regular)"
             name.contains("pt") || name.contains("sports") || name.contains("pt/sports") -> "PT / Sports"
             name.contains("winter") -> "Winter Uniform"
             else -> row.categoryName
         }
-    }
-
-    val sections = listOf(
-        "Books",
-        "Summer Uniform (Regular)",
-        "PT / Sports",
-        "Winter Uniform"
-    )
-
-    var expandedSections by remember {
-        mutableStateOf(setOf("Books", "Summer Uniform (Regular)", "PT / Sports", "Winter Uniform"))
+        val targetCategory = when (selectedCategory) {
+            "Books" -> "Books"
+            "Summer Uniforms" -> "Summer Uniform (Regular)"
+            "PT / Sports" -> "PT / Sports"
+            "Winter Uniforms" -> "Winter Uniform"
+            else -> "Books"
+        }
+        mappedCategory == targetCategory
     }
 
     Scaffold(
@@ -84,7 +83,46 @@ fun InventoryScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Category Buttons (2x2 Grid)
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CategoryGridCard(
+                        title = "Books",
+                        isSelected = selectedCategory == "Books",
+                        onClick = { selectedCategory = "Books" },
+                        modifier = Modifier.weight(1f)
+                    )
+                    CategoryGridCard(
+                        title = "Summer Uniforms",
+                        isSelected = selectedCategory == "Summer Uniforms",
+                        onClick = { selectedCategory = "Summer Uniforms" },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CategoryGridCard(
+                        title = "PT / Sports",
+                        isSelected = selectedCategory == "PT / Sports",
+                        onClick = { selectedCategory = "PT / Sports" },
+                        modifier = Modifier.weight(1f)
+                    )
+                    CategoryGridCard(
+                        title = "Winter Uniforms",
+                        isSelected = selectedCategory == "Winter Uniforms",
+                        onClick = { selectedCategory = "Winter Uniforms" },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilterChip(
                     selected = lowStockOnly,
                     onClick = { viewModel.toggleLowStockOnly() },
@@ -92,57 +130,16 @@ fun InventoryScreen(
                 )
             }
 
-            if (items.isEmpty()) {
+            if (filteredItems.isEmpty()) {
                 Text(
-                    if (lowStockOnly) "Nothing is low on stock." else "No inventory items yet.",
+                    if (lowStockOnly) "Nothing is low on stock in this category." else "No items in this category yet.",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(16.dp),
                 )
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    sections.forEach { sectionName ->
-                        val sectionItems = grouped[sectionName] ?: emptyList()
-                        if (sectionItems.isNotEmpty() || !lowStockOnly) {
-                            item(key = sectionName) {
-                                val isExpanded = sectionName in expandedSections
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                    ),
-                                    onClick = {
-                                        expandedSections = if (isExpanded) {
-                                            expandedSections - sectionName
-                                        } else {
-                                            expandedSections + sectionName
-                                        }
-                                    }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "$sectionName (${sectionItems.size})",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                                        )
-                                        Icon(
-                                            imageVector = if (isExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                                            contentDescription = if (isExpanded) "Collapse" else "Expand"
-                                        )
-                                    }
-                                }
-                            }
-                            if (sectionName in expandedSections) {
-                                items(sectionItems, key = { it.variant.id }) { row ->
-                                    InventoryRowCard(row, onClick = { selectedRow = row })
-                                }
-                            }
-                        }
+                    items(filteredItems, key = { it.variant.id }) { row ->
+                        InventoryRowCard(row, onClick = { selectedRow = row })
                     }
                 }
             }
@@ -156,6 +153,36 @@ fun InventoryScreen(
             onRestock = { qty -> viewModel.restock(row.variant.id, qty) },
             onUpdatePrice = { price -> viewModel.updatePrice(row.variant.id, price) }
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryGridCard(
+    title: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+        ),
+        onClick = onClick
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

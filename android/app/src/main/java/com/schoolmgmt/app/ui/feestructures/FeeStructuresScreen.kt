@@ -13,6 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -87,16 +90,36 @@ fun FeeStructuresScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            LazyRow(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(classes, key = { it.id }) { schoolClass ->
-                    FilterChip(
-                        selected = schoolClass.id == selectedClassId,
-                        onClick = { viewModel.selectClass(schoolClass.id) },
-                        label = { Text(schoolClass.name) },
-                    )
+            Column(modifier = Modifier.padding(16.dp)) {
+                val chunks = classes.chunked(3)
+                chunks.forEach { rowClasses ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowClasses.forEach { schoolClass ->
+                            val isSelected = schoolClass.id == selectedClassId
+                            Button(
+                                onClick = { viewModel.selectClass(schoolClass.id) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                                ),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = schoolClass.name,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        if (rowClasses.size < 3) {
+                            repeat(3 - rowClasses.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
                 }
             }
 
