@@ -127,6 +127,11 @@ body {
   padding-right: 40px;
 }
 
+.select-field option {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
 /* Premium Buttons */
 .btn {
   display: inline-flex;
