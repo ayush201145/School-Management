@@ -113,6 +113,66 @@ class FeeRepository @Inject constructor(
         payment
     }
 
+    suspend fun recordBulkPayment(
+        studentId: String,
+        totalAmount: Double,
+        mode: PaymentMode,
+        recordedById: String,
+        referenceNo: String? = null,
+        notes: String? = null,
+        paidAt: Long = System.currentTimeMillis()
+    ): List<PaymentEntity> = db.withTransaction {
+        require(totalAmount > 0) { "Amount must be greater than 0" }
+        
+        val unpaidFees = studentFeeDao.getUnpaidForStudentOnce(studentId)
+        if (unpaidFees.isEmpty()) {
+            return@withTransaction emptyList()
+        }
+        
+        var remainingPayment = totalAmount
+        val paymentsCreated = mutableListOf<PaymentEntity>()
+        
+        for (fee in unpaidFees) {
+            if (remainingPayment <= 0.0) break
+            
+            val alreadyPaid = paymentDao.getTotalPaidForFee(fee.id)
+            val payable = fee.amount - fee.discount
+            val remainingFeeBalance = (payable - alreadyPaid).coerceAtLeast(0.0)
+            
+            if (remainingFeeBalance <= 0.0) continue
+            
+            val allocation = minOf(remainingFeeBalance, remainingPayment)
+            val now = System.currentTimeMillis()
+            val payment = PaymentEntity(
+                id = UUID.randomUUID().toString(),
+                studentFeeId = fee.id,
+                amount = allocation,
+                mode = mode,
+                referenceNo = referenceNo,
+                paidAt = paidAt,
+                recordedById = recordedById,
+                notes = notes,
+                updatedAt = now,
+            )
+            paymentDao.upsert(payment)
+            paymentsCreated.add(payment)
+            
+            val newTotalPaid = alreadyPaid + allocation
+            val newStatus = when {
+                newTotalPaid <= 0.0 -> FeeStatus.UNPAID
+                newTotalPaid >= payable -> FeeStatus.PAID
+                else -> FeeStatus.PARTIAL
+            }
+            if (newStatus != fee.status) {
+                studentFeeDao.update(fee.copy(status = newStatus, updatedAt = now))
+            }
+            
+            remainingPayment -= allocation
+        }
+        
+        return@withTransaction paymentsCreated
+    }
+
     /** Creates an ad-hoc or structure-derived StudentFee row (used by bulk-assign, see FeeStructureRepository). */
     suspend fun createStudentFee(fee: StudentFeeEntity) = studentFeeDao.upsert(fee)
 }

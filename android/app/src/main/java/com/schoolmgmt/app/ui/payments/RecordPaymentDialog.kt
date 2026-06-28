@@ -136,3 +136,116 @@ fun RecordPaymentDialog(
         },
     )
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecordBulkPaymentDialog(
+    studentId: String,
+    suggestedAmount: Double,
+    onDismiss: () -> Unit,
+    onPaymentRecorded: () -> Unit,
+    viewModel: RecordPaymentViewModel = hiltViewModel(),
+) {
+    var amountText by remember { mutableStateOf(if (suggestedAmount > 0) "%.2f".format(suggestedAmount) else "") }
+    var localError by remember { mutableStateOf<String?>(null) }
+    var selectedMode by remember { mutableStateOf(PaymentMode.CASH) }
+    var modeMenuExpanded by remember { mutableStateOf(false) }
+    var referenceNo by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+
+    val uiState by viewModel.uiState.collectAsState()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pay Multiple Fees (Bulk)") },
+        text = {
+            Column {
+                Text(
+                    text = "This payment will automatically clear your oldest unpaid or partial dues first (FIFO order).",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Total Amount Paid (₹)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                )
+
+                TextButton(onClick = { modeMenuExpanded = true }) {
+                    Text("Mode: ${selectedMode.name}")
+                }
+                DropdownMenu(expanded = modeMenuExpanded, onDismissRequest = { modeMenuExpanded = false }) {
+                    PaymentMode.entries.forEach { mode ->
+                        DropdownMenuItem(
+                            text = { Text(mode.name) },
+                            onClick = { selectedMode = mode; modeMenuExpanded = false },
+                        )
+                    }
+                }
+
+                OutlinedTextField(
+                    value = referenceNo,
+                    onValueChange = { referenceNo = it },
+                    label = { Text("Reference no. (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp),
+                )
+
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                if (localError != null) {
+                    Text(
+                        text = localError ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                if (uiState.errorMessage != null) {
+                    Text(
+                        text = uiState.errorMessage ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !uiState.isSubmitting,
+                onClick = {
+                    val amount = amountText.toDoubleOrNull()
+                    if (amount == null || amount <= 0) {
+                        localError = "Enter a valid amount greater than 0"
+                        return@TextButton
+                    }
+                    localError = null
+                    viewModel.recordBulkPayment(
+                        studentId = studentId,
+                        amount = amount,
+                        mode = selectedMode,
+                        referenceNo = referenceNo,
+                        notes = notes,
+                        onSuccess = onPaymentRecorded,
+                    )
+                },
+            ) {
+                Text(if (uiState.isSubmitting) "Saving..." else "Record payment")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}

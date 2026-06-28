@@ -7,6 +7,9 @@ import com.schoolmgmt.app.data.local.entity.SchoolClassEntity
 import com.schoolmgmt.app.data.local.entity.SectionEntity
 import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
 import java.util.UUID
+import java.time.Instant
+import java.time.ZoneId
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -133,6 +136,45 @@ class FeeStructureRepository @Inject constructor(
         )
         feeStructureDao.upsert(structure)
         return structure
+    }
+
+    suspend fun createMonthlyRecurringFeeStructures(
+        feeCategoryId: String,
+        classId: String,
+        academicYearId: String,
+        amount: Double,
+        baseDueDate: Long,
+        descriptionPrefix: String?
+    ): List<FeeStructureEntity> = db.withTransaction {
+        val year = db.academicYearDao().getById(academicYearId) ?: return@withTransaction emptyList()
+        val startLocalDate = Instant.ofEpochMilli(year.startDate).atZone(ZoneId.systemDefault()).toLocalDate()
+        val endLocalDate = Instant.ofEpochMilli(year.endDate).atZone(ZoneId.systemDefault()).toLocalDate()
+        val baseDate = Instant.ofEpochMilli(baseDueDate).atZone(ZoneId.systemDefault()).toLocalDate()
+        
+        val structures = mutableListOf<FeeStructureEntity>()
+        var current = baseDate
+        
+        while (!current.isBefore(startLocalDate) && !current.isAfter(endLocalDate)) {
+            val monthName = current.month.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.US)
+            val desc = "${descriptionPrefix ?: "Tuition Fee"} - $monthName ${current.year}"
+            val dueDateMillis = current.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            
+            val structure = FeeStructureEntity(
+                id = UUID.randomUUID().toString(),
+                feeCategoryId = feeCategoryId,
+                classId = classId,
+                academicYearId = academicYearId,
+                amount = amount,
+                dueDate = dueDateMillis,
+                description = desc,
+                updatedAt = System.currentTimeMillis()
+            )
+            feeStructureDao.upsert(structure)
+            structures.add(structure)
+            
+            current = current.plusMonths(1)
+        }
+        return@withTransaction structures
     }
 
     /**

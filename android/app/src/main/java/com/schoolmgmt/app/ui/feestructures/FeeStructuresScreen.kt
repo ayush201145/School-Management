@@ -35,6 +35,7 @@ import com.schoolmgmt.app.data.local.entity.FeeStructureEntity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -139,12 +140,13 @@ fun FeeStructuresScreen(
         AddFeeStructureDialog(
             categories = feeCategories,
             onDismiss = { showAddDialog = false },
-            onConfirm = { catId, amount, dueDate, desc ->
+            onConfirm = { catId, amount, dueDate, desc, recur ->
                 viewModel.createFeeStructure(
                     feeCategoryId = catId,
                     amount = amount,
                     dueDate = dueDate,
                     description = desc,
+                    recurMonthly = recur,
                     onSuccess = {
                         showAddDialog = false
                     },
@@ -180,7 +182,7 @@ fun FeeStructuresScreen(
 fun AddFeeStructureDialog(
     categories: List<FeeCategoryEntity>,
     onDismiss: () -> Unit,
-    onConfirm: (categoryId: String, amount: Double, dueDate: Long, description: String?) -> Unit
+    onConfirm: (categoryId: String, amount: Double, dueDate: Long, description: String?, recurMonthly: Boolean) -> Unit
 ) {
     var selectedCategory by remember { mutableStateOf<FeeCategoryEntity?>(categories.firstOrNull()) }
     var dropdownExpanded by remember { mutableStateOf(false) }
@@ -189,6 +191,7 @@ fun AddFeeStructureDialog(
     var dueDateStr by remember {
         mutableStateOf(LocalDate.now().plusMonths(1).format(DateTimeFormatter.ISO_LOCAL_DATE))
     }
+    var recurMonthly by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -250,6 +253,21 @@ fun AddFeeStructureDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = recurMonthly,
+                        onCheckedChange = { recurMonthly = it }
+                    )
+                    Text(
+                        text = "Recur Monthly (for the academic year)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+
                 errorMsg?.let {
                     Text(it, color = MaterialTheme.colorScheme.error)
                 }
@@ -283,7 +301,8 @@ fun AddFeeStructureDialog(
                         category.id,
                         amount,
                         parsedDate,
-                        description.trim().takeIf { it.isNotBlank() }
+                        description.trim().takeIf { it.isNotBlank() },
+                        recurMonthly
                     )
                 },
                 enabled = categories.isNotEmpty()

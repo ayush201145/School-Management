@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.schoolmgmt.app.data.local.entity.FeeStatus
+
 data class StudentDetailUiState(
     val student: StudentEntity? = null,
     val fees: List<StudentFeeEntity> = emptyList(),
@@ -27,11 +29,6 @@ class StudentDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
-    // Pulled from the nav graph's "studentId" route argument — see
-    // NavGraph.kt's composable(Routes.STUDENT_DETAIL) entry. Reading it
-    // via SavedStateHandle (rather than a constructor param passed
-    // through hiltViewModel()) is the standard Hilt+Navigation pattern,
-    // and survives process death/recreation correctly.
     private val studentId: String = checkNotNull(savedStateHandle["studentId"])
 
     private val _uiState = MutableStateFlow(StudentDetailUiState())
@@ -71,4 +68,14 @@ class StudentDetailViewModel @Inject constructor(
 
     suspend fun getRemainingBalance(studentFeeId: String): Double =
         feeRepository.getRemainingBalance(studentFeeId)
+
+    suspend fun getTotalDuesBalance(): Double {
+        var balance = 0.0
+        for (fee in uiState.value.fees) {
+            if (fee.status != FeeStatus.PAID) {
+                balance += feeRepository.getRemainingBalance(fee.id)
+            }
+        }
+        return balance
+    }
 }

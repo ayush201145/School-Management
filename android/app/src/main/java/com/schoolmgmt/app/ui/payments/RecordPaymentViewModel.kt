@@ -73,4 +73,45 @@ class RecordPaymentViewModel @Inject constructor(
             }
         }
     }
+
+    fun recordBulkPayment(
+        studentId: String,
+        amount: Double,
+        mode: PaymentMode,
+        referenceNo: String?,
+        notes: String?,
+        onSuccess: () -> Unit,
+    ) {
+        if (amount <= 0) {
+            _uiState.value = _uiState.value.copy(errorMessage = "Enter an amount greater than 0")
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(isSubmitting = true, errorMessage = null)
+        viewModelScope.launch {
+            try {
+                val userId = authRepository.getCurrentUserId()
+                    ?: throw IllegalStateException("Not logged in")
+
+                feeRepository.recordBulkPayment(
+                    studentId = studentId,
+                    totalAmount = amount,
+                    mode = mode,
+                    recordedById = userId,
+                    referenceNo = referenceNo?.ifBlank { null },
+                    notes = notes?.ifBlank { null },
+                )
+
+                syncScheduler.syncNow()
+
+                _uiState.value = _uiState.value.copy(isSubmitting = false)
+                onSuccess()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isSubmitting = false,
+                    errorMessage = "Could not record bulk payment: ${e.message ?: "please try again"}",
+                )
+            }
+        }
+    }
 }

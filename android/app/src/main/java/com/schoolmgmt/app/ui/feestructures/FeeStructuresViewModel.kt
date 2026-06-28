@@ -61,6 +61,7 @@ class FeeStructuresViewModel @Inject constructor(
         amount: Double,
         dueDate: Long,
         description: String?,
+        recurMonthly: Boolean,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -77,14 +78,25 @@ class FeeStructuresViewModel @Inject constructor(
                     onError("No current academic year found. Please sync to load academic years.")
                     return@launch
                 }
-                feeStructureRepository.createFeeStructure(
-                    feeCategoryId = feeCategoryId,
-                    classId = classId,
-                    academicYearId = year.id,
-                    amount = amount,
-                    dueDate = dueDate,
-                    description = description
-                )
+                if (recurMonthly) {
+                    feeStructureRepository.createMonthlyRecurringFeeStructures(
+                        feeCategoryId = feeCategoryId,
+                        classId = classId,
+                        academicYearId = year.id,
+                        amount = amount,
+                        baseDueDate = dueDate,
+                        descriptionPrefix = description
+                    )
+                } else {
+                    feeStructureRepository.createFeeStructure(
+                        feeCategoryId = feeCategoryId,
+                        classId = classId,
+                        academicYearId = year.id,
+                        amount = amount,
+                        dueDate = dueDate,
+                        description = description
+                    )
+                }
                 onSuccess()
             } catch (e: Exception) {
                 onError("Failed to create fee structure: ${e.message ?: "unknown error"}")

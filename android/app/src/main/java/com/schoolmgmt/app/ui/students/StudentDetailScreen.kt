@@ -39,6 +39,7 @@ import com.schoolmgmt.app.data.local.entity.FeeStatus
 import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
 import com.schoolmgmt.app.data.local.entity.WithdrawalReason
 import com.schoolmgmt.app.ui.payments.RecordPaymentDialog
+import com.schoolmgmt.app.ui.payments.RecordBulkPaymentDialog
 import com.schoolmgmt.app.ui.purchases.PurchaseItemDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,6 +53,7 @@ fun StudentDetailScreen(
     var showWithdrawDialog by remember { mutableStateOf(false) }
     var feeForPayment by remember { mutableStateOf<StudentFeeEntity?>(null) }
     var showPurchaseDialog by remember { mutableStateOf(false) }
+    var showBulkPaymentDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -101,8 +103,13 @@ fun StudentDetailScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(text = "Fees", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = { showPurchaseDialog = true }) {
-                    Text("Sell book / uniform")
+                Row {
+                    TextButton(onClick = { showBulkPaymentDialog = true }) {
+                        Text("Pay Multiple Fees")
+                    }
+                    TextButton(onClick = { showPurchaseDialog = true }) {
+                        Text("Sell book / uniform")
+                    }
                 }
             }
             LazyColumn {
@@ -150,6 +157,22 @@ fun StudentDetailScreen(
             onDismiss = { showPurchaseDialog = false },
             onPurchaseComplete = { showPurchaseDialog = false },
         )
+    }
+
+    if (showBulkPaymentDialog) {
+        var totalOutstanding by remember { mutableStateOf<Double?>(null) }
+        LaunchedEffect(studentId) {
+            totalOutstanding = viewModel.getTotalDuesBalance()
+        }
+
+        if (totalOutstanding != null) {
+            RecordBulkPaymentDialog(
+                studentId = studentId,
+                suggestedAmount = totalOutstanding ?: 0.0,
+                onDismiss = { showBulkPaymentDialog = false },
+                onPaymentRecorded = { showBulkPaymentDialog = false }
+            )
+        }
     }
 }
 

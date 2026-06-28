@@ -90,6 +90,9 @@ interface StudentFeeDao {
     @Query("SELECT * FROM student_fees WHERE studentId = :studentId AND isDeleted = 0 ORDER BY dueDate DESC")
     fun observeByStudent(studentId: String): Flow<List<StudentFeeEntity>>
 
+    @Query("SELECT * FROM student_fees WHERE studentId = :studentId AND status != 'PAID' AND isDeleted = 0 ORDER BY dueDate ASC")
+    suspend fun getUnpaidForStudentOnce(studentId: String): List<StudentFeeEntity>
+
     /**
      * THE IDEMPOTENCY CHECK for bulk-assign. Returns which of the given
      * student ids ALREADY have a (non-deleted) StudentFee tied to this
