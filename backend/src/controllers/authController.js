@@ -21,7 +21,7 @@ function signToken(user) {
  * Body: { username, password }
  */
 async function login(req, res) {
-  const { username, password } = req.body;
+  const { username, password, clientType } = req.body;
   if (!username || !password) {
     throw new ApiError(400, "username and password are required");
   }
@@ -38,6 +38,10 @@ async function login(req, res) {
     throw new ApiError(401, "Invalid username or password");
   }
 
+  if (user.role === "MASTER" && clientType !== "web") {
+    throw new ApiError(403, "Master accounts are restricted to the web portal.");
+  }
+
   const token = signToken(user);
   res.json({
     token,
@@ -52,26 +56,27 @@ async function login(req, res) {
 
 /**
  * POST /api/auth/bootstrap-admin
- * One-time setup route to create the FIRST admin account when the
- * database is empty. Refuses to run if any admin already exists,
- * so it can't be (mis)used to create extra admins later.
+ * One-time setup route to create the FIRST admin or master account when the
+ * database is empty for that role.
  */
 async function bootstrapAdmin(req, res) {
-  const { username, password } = req.body;
+  const { username, password, role } = req.body;
   if (!username || !password) {
     throw new ApiError(400, "username and password are required");
   }
 
-  const existingAdmin = await prisma.user.findFirst({
-    where: { role: "ADMIN", isDeleted: false },
+  const targetRole = role === "MASTER" ? "MASTER" : "ADMIN";
+
+  const existingUser = await prisma.user.findFirst({
+    where: { role: targetRole, isDeleted: false },
   });
-  if (existingAdmin) {
-    throw new ApiError(403, "An admin account already exists. Use the normal user creation route.");
+  if (existingUser) {
+    throw new ApiError(403, `A user with role ${targetRole} already exists.`);
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
-    data: { username, passwordHash, role: "ADMIN" },
+    data: { username, passwordHash, role: targetRole },
   });
 
   const token = signToken(user);

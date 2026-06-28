@@ -68,7 +68,7 @@ const SYNC_TABLES = {
   },
   ItemVariant: {
     prismaModel: "itemVariant",
-    writableFields: ["itemCategoryId", "label", "classId", "size", "price", "stockQuantity", "isActive"],
+    writableFields: ["itemCategoryId", "label", "classId", "size", "price", "stockQuantity", "isActive", "costPrice"],
   },
   InventoryTransaction: {
     prismaModel: "inventoryTransaction",

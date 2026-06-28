@@ -123,9 +123,16 @@ class InventoryRepository @Inject constructor(
         recordedById,
     )
 
-    suspend fun updateVariantPrice(itemVariantId: String, price: Double) {
+    suspend fun updateVariantPrice(itemVariantId: String, price: Double, costPrice: Double? = null) {
         val variant = itemVariantDao.getById(itemVariantId)
             ?: throw IllegalArgumentException("Item variant $itemVariantId not found")
-        itemVariantDao.update(variant.copy(price = price, updatedAt = System.currentTimeMillis()))
+        itemVariantDao.update(
+            variant.copy(
+                price = price,
+                costPrice = costPrice,
+                updatedAt = System.currentTimeMillis(),
+                syncedAt = null
+            )
+        )
     }
 }

@@ -39,6 +39,10 @@ class AuthRepository @Inject constructor(
             throw LoginFailedException("Login failed: ${e.message ?: "check your connection and try again"}")
         }
 
+        if (response.user.role == "MASTER") {
+            throw LoginFailedException("Master accounts are restricted to the web portal.")
+        }
+
         authPreferences.saveSession(
             token = response.token,
             userId = response.user.id,

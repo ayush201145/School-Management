@@ -18,6 +18,7 @@ data class ItemVariantDto(
     val classId: String? = null,
     val size: String? = null,
     val price: Double,
+    val costPrice: Double? = null,
     val stockQuantity: Int = 0,
     val isActive: Boolean = true,
 )
@@ -26,6 +27,7 @@ data class ItemVariantDto(
 data class UpdateItemVariantRequest(
     val label: String? = null,
     val price: Double? = null,
+    val costPrice: Double? = null,
     val isActive: Boolean? = null,
 )
 

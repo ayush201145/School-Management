@@ -45,6 +45,11 @@ async function listItemVariants(req, res) {
     orderBy: [{ itemCategoryId: "asc" }, { label: "asc" }],
     include: { itemCategory: true, schoolClass: true },
   });
+  if (req.user.role !== "ADMIN" && req.user.role !== "ACCOUNTANT") {
+    for (const v of variants) {
+      v.costPrice = null;
+    }
+  }
   res.json(variants);
 }
 
@@ -55,19 +60,25 @@ async function listItemVariants(req, res) {
  *   Uniform: { itemCategoryId, label: "Size M", size: "M", price: 600 }
  */
 async function createItemVariant(req, res) {
-  const { itemCategoryId, label, classId, size, price } = req.body;
+  const { itemCategoryId, label, classId, size, price, costPrice } = req.body;
   if (!itemCategoryId || !label || price === undefined) {
     throw new ApiError(400, "itemCategoryId, label, and price are required");
   }
   if (Number(price) <= 0) throw new ApiError(400, "price must be greater than 0");
+  if (costPrice !== undefined && Number(costPrice) < 0) {
+    throw new ApiError(400, "costPrice cannot be negative");
+  }
 
   const category = await prisma.itemCategory.findFirst({
     where: { id: itemCategoryId, isDeleted: false },
   });
   if (!category) throw new ApiError(400, "itemCategoryId does not refer to a valid item category");
 
+  const hasCost = ["BOOK", "UNIFORM_SUMMER", "UNIFORM_WINTER"].includes(category.type);
+  const finalCostPrice = hasCost && costPrice !== undefined ? costPrice : null;
+
   const variant = await prisma.itemVariant.create({
-    data: { itemCategoryId, label, classId, size, price },
+    data: { itemCategoryId, label, classId, size, price, costPrice: finalCostPrice },
   });
   res.status(201).json(variant);
 }
@@ -76,7 +87,11 @@ async function updateItemVariant(req, res) {
   const existing = await prisma.itemVariant.findFirst({ where: { id: req.params.id, isDeleted: false } });
   if (!existing) throw new ApiError(404, "Item variant not found");
 
-  const allowed = ["label", "price", "isActive"];
+  if (req.body.costPrice !== undefined && Number(req.body.costPrice) < 0) {
+    throw new ApiError(400, "costPrice cannot be negative");
+  }
+
+  const allowed = ["label", "price", "costPrice", "isActive"];
   const data = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) data[key] = req.body[key];

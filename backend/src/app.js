@@ -17,6 +17,7 @@ const syncRoutes = require("./routes/syncRoutes");
 const staffRoutes = require("./routes/staffRoutes");
 const expenseRoutes = require("./routes/expenseRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const userRoutes = require("./routes/userRoutes");
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use("/api", syncRoutes); // /api/sync/push, /api/sync/pull, /api/sync/confli
 app.use("/api", staffRoutes); // /api/staff, /api/salary-status
 app.use("/api", expenseRoutes); // /api/expenses, /api/recurring-expenses
 app.use("/api", reportRoutes); // /api/reports/monthly
+app.use("/api", userRoutes);
 
 app.use((req, res) => res.status(404).json({ error: "Route not found" }));
 app.use(errorHandler);

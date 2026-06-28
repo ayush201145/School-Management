@@ -127,6 +127,27 @@ private fun ReportContent(report: MonthlyReport) {
             }
         }
 
+        if (report.itemSalesRevenue > 0.0 || report.itemCostOfSales > 0.0) {
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Books & Uniforms Sales Summary",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    SummaryLine("Sales Revenue", report.itemSalesRevenue, MaterialTheme.colorScheme.primary)
+                    SummaryLine("Cost of Goods Sold (COGS)", -report.itemCostOfSales, MaterialTheme.colorScheme.error)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                    SummaryLine(
+                        "Gross Margin",
+                        report.itemProfit,
+                        if (report.itemProfit >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        emphasize = true,
+                    )
+                }
+            }
+        }
+
         if (report.collectedByMode.isNotEmpty()) {
             Text(
                 "Collected by mode",

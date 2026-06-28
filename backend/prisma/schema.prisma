@@ -18,6 +18,7 @@ datasource db {
 // ----------------------------
 
 enum Role {
+  MASTER
   ADMIN
   ACCOUNTANT
   TEACHER
@@ -315,6 +316,7 @@ model ItemVariant {
   schoolClass     SchoolClass? @relation(fields: [classId], references: [id])
   size            String?      // optional: "20","22","24"..."34" (mainly for uniforms)
   price           Decimal      @db.Decimal(10, 2)
+  costPrice       Decimal?     @db.Decimal(10, 2)
   stockQuantity   Int          @default(0) // current units on hand — kept in sync via InventoryTransaction
   isActive        Boolean      @default(true)
 

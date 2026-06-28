@@ -82,7 +82,7 @@ import com.schoolmgmt.app.data.local.entity.UserEntity
         RecurringExpenseTemplateEntity::class,
         ExpenseEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true, // schemas/ dir gets checked into version control — needed for migration testing
 )
 @TypeConverters(Converters::class)
@@ -238,6 +238,12 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `students` ADD COLUMN `motherPhone` TEXT")
                 db.execSQL("ALTER TABLE `students` ADD COLUMN `whatsappPhone` TEXT")
                 db.execSQL("ALTER TABLE `students` ADD COLUMN `tuitionFee` REAL")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `item_variants` ADD COLUMN `costPrice` REAL")
             }
         }
     }

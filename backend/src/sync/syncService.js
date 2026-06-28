@@ -84,16 +84,24 @@ async function pushChanges(changes, clientUserId) {
  * Soft-deleted rows ARE included (with isDeleted: true) so the device
  * knows to remove them locally too — this is why we never hard-delete.
  */
-async function pullChanges(since) {
+async function pullChanges(since, role) {
   const sinceDate = since ? new Date(since) : new Date(0);
   const out = {};
 
   for (const [tableName, config] of Object.entries(require("./syncRegistry").SYNC_TABLES)) {
     const model = prisma[config.prismaModel];
-    const rows = await model.findMany({
+    let rows = await model.findMany({
       where: { updatedAt: { gt: sinceDate } },
       orderBy: { updatedAt: "asc" },
     });
+
+    if (tableName === "ItemVariant" && role !== "ADMIN" && role !== "ACCOUNTANT") {
+      rows = rows.map(r => {
+        r.costPrice = null;
+        return r;
+      });
+    }
+
     out[tableName] = rows;
   }
 

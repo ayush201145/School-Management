@@ -151,7 +151,7 @@ fun InventoryScreen(
             row = row,
             onDismiss = { selectedRow = null },
             onRestock = { qty -> viewModel.restock(row.variant.id, qty) },
-            onUpdatePrice = { price -> viewModel.updatePrice(row.variant.id, price) }
+            onUpdatePrice = { price, costPrice -> viewModel.updatePrice(row.variant.id, price, costPrice) }
         )
     }
 }
@@ -213,10 +213,11 @@ fun InventoryActionDialog(
     row: InventoryRow,
     onDismiss: () -> Unit,
     onRestock: (Int) -> Unit,
-    onUpdatePrice: (Double) -> Unit,
+    onUpdatePrice: (Double, Double?) -> Unit,
 ) {
     var restockQty by remember { mutableStateOf("") }
     var priceStr by remember { mutableStateOf(row.variant.price.toString()) }
+    var costPriceStr by remember { mutableStateOf(row.variant.costPrice?.toString() ?: "") }
     var errorMsg by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
@@ -227,7 +228,14 @@ fun InventoryActionDialog(
                 OutlinedTextField(
                     value = priceStr,
                     onValueChange = { priceStr = it },
-                    label = { Text("Price (₹)") },
+                    label = { Text("Selling Price (₹)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                )
+                OutlinedTextField(
+                    value = costPriceStr,
+                    onValueChange = { costPriceStr = it },
+                    label = { Text("Cost Price (₹)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 )
@@ -252,6 +260,17 @@ fun InventoryActionDialog(
                     return@TextButton
                 }
 
+                val newCostPrice = if (costPriceStr.isNotBlank()) {
+                    val parsed = costPriceStr.toDoubleOrNull()
+                    if (parsed == null || parsed < 0) {
+                        errorMsg = "Invalid cost price"
+                        return@TextButton
+                    }
+                    parsed
+                } else {
+                    null
+                }
+
                 val qty = if (restockQty.isNotBlank()) {
                     val parsed = restockQty.toIntOrNull()
                     if (parsed == null || parsed <= 0) {
@@ -263,8 +282,8 @@ fun InventoryActionDialog(
                     0
                 }
 
-                if (newPrice != row.variant.price) {
-                    onUpdatePrice(newPrice)
+                if (newPrice != row.variant.price || newCostPrice != row.variant.costPrice) {
+                    onUpdatePrice(newPrice, newCostPrice)
                 }
                 if (qty > 0) {
                     onRestock(qty)

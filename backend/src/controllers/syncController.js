@@ -33,7 +33,7 @@ async function push(req, res) {
  */
 async function pull(req, res) {
   const { since } = req.query;
-  const result = await pullChanges(since);
+  const result = await pullChanges(since, req.user.role);
   res.json(result);
 }
 

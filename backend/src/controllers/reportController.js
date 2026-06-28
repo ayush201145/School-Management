@@ -27,7 +27,7 @@ async function getMonthlyReport(req, res) {
   const periodStart = new Date(year, month - 1, 1);
   const periodEnd = new Date(year, month, 1); // exclusive upper bound — first day of next month
 
-  const [payments, expenses, salaryPayments] = await Promise.all([
+  const [payments, expenses, salaryPayments, purchases] = await Promise.all([
     prisma.payment.findMany({
       where: { isDeleted: false, paidAt: { gte: periodStart, lt: periodEnd } },
     }),
@@ -38,12 +38,32 @@ async function getMonthlyReport(req, res) {
     prisma.salaryPayment.findMany({
       where: { isDeleted: false, paidAt: { gte: periodStart, lt: periodEnd } },
     }),
+    prisma.studentItemPurchase.findMany({
+      where: { isDeleted: false, createdAt: { gte: periodStart, lt: periodEnd } },
+      include: { itemVariant: { include: { itemCategory: true } } },
+    }),
   ]);
 
   const cashCollected = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
   const totalSalaries = salaryPayments.reduce((sum, s) => sum + Number(s.amount), 0);
   const netForMonth = cashCollected - totalExpenses - totalSalaries;
+
+  let itemSalesRevenue = 0;
+  let itemCostOfSales = 0;
+
+  for (const p of purchases) {
+    const type = p.itemVariant.itemCategory.type;
+    if (["BOOK", "UNIFORM_SUMMER", "UNIFORM_WINTER"].includes(type)) {
+      const qty = p.quantity || 1;
+      const sp = Number(p.itemVariant.price) || 0;
+      const cp = Number(p.itemVariant.costPrice) || 0;
+      itemSalesRevenue += sp * qty;
+      itemCostOfSales += cp * qty;
+    }
+  }
+
+  const itemProfit = itemSalesRevenue - itemCostOfSales;
 
   const collectedByMode = {};
   for (const p of payments) {
@@ -65,6 +85,9 @@ async function getMonthlyReport(req, res) {
     expensesByCategory,
     totalSalaries,
     netForMonth,
+    itemSalesRevenue,
+    itemCostOfSales,
+    itemProfit,
     transactionCount: payments.length,
     expenseCount: expenses.length,
     salaryPaymentCount: salaryPayments.length,

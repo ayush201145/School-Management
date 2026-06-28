@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.schoolmgmt.app.data.local.entity.InventoryTransactionEntity
 import com.schoolmgmt.app.data.local.entity.ItemCategoryEntity
+import com.schoolmgmt.app.data.local.entity.ItemType
 import com.schoolmgmt.app.data.local.entity.ItemVariantEntity
 import com.schoolmgmt.app.data.local.entity.StudentItemPurchaseEntity
 import kotlinx.coroutines.flow.Flow
@@ -153,7 +154,25 @@ interface StudentItemPurchaseDao {
 
     @Query("UPDATE student_item_purchases SET syncedAt = :syncedAt WHERE id = :id")
     suspend fun markSynced(id: String, syncedAt: Long)
+
+    @Query(
+        """
+        SELECT p.quantity AS quantity, v.costPrice AS costPrice, v.price AS price, c.type AS itemType
+        FROM student_item_purchases p
+        INNER JOIN item_variants v ON v.id = p.itemVariantId
+        INNER JOIN item_categories c ON c.id = v.itemCategoryId
+        WHERE p.isDeleted = 0 AND p.updatedAt >= :startMillis AND p.updatedAt < :endMillis
+        """
+    )
+    suspend fun getPurchaseReportInfo(startMillis: Long, endMillis: Long): List<PurchaseReportInfo>
 }
+
+data class PurchaseReportInfo(
+    val quantity: Int,
+    val costPrice: Double?,
+    val price: Double,
+    val itemType: ItemType,
+)
 
 /** One row of the student-side purchase history, with item details pre-joined. */
 data class StudentPurchaseHistoryRow(

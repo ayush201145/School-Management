@@ -94,6 +94,7 @@ fun com.schoolmgmt.app.data.local.entity.ItemVariantEntity.toWireMap(): Map<Stri
     "classId" to classId,
     "size" to size,
     "price" to price,
+    "costPrice" to costPrice,
     "stockQuantity" to stockQuantity,
     "isActive" to isActive,
 )

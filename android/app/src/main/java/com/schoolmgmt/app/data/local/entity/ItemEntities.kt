@@ -57,6 +57,7 @@ data class ItemVariantEntity(
     val classId: String? = null,   // set for book variants
     val size: String? = null,      // set for uniform variants ("20".."34")
     val price: Double,
+    val costPrice: Double? = null,
     val stockQuantity: Int = 0,
     val isActive: Boolean = true,
 

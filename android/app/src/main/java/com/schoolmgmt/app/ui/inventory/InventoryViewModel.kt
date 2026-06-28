@@ -47,10 +47,10 @@ class InventoryViewModel @Inject constructor(
         }
     }
 
-    fun updatePrice(itemVariantId: String, price: Double, onSuccess: () -> Unit = {}) {
+    fun updatePrice(itemVariantId: String, price: Double, costPrice: Double?, onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             try {
-                inventoryRepository.updateVariantPrice(itemVariantId, price)
+                inventoryRepository.updateVariantPrice(itemVariantId, price, costPrice)
                 onSuccess()
             } catch (e: Exception) {
                 // simple swallow or log

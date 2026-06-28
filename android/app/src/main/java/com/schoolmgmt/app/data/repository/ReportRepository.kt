@@ -24,6 +24,9 @@ data class MonthlyReport(
     val expensesByCategory: Map<String, Double>,
     val totalSalaries: Double,
     val netForMonth: Double,
+    val itemSalesRevenue: Double = 0.0,
+    val itemCostOfSales: Double = 0.0,
+    val itemProfit: Double = 0.0,
 )
 
 @Singleton
@@ -50,6 +53,20 @@ class ReportRepository @Inject constructor(
 
         val totalSalaries = salaryPaymentDao.getTotalPaidInRange(periodStart, periodEnd)
 
+        val purchases = db.studentItemPurchaseDao().getPurchaseReportInfo(periodStart, periodEnd)
+        var itemSalesRevenue = 0.0
+        var itemCostOfSales = 0.0
+        for (p in purchases) {
+            if (p.itemType == com.schoolmgmt.app.data.local.entity.ItemType.BOOK || 
+                p.itemType == com.schoolmgmt.app.data.local.entity.ItemType.UNIFORM_SUMMER || 
+                p.itemType == com.schoolmgmt.app.data.local.entity.ItemType.UNIFORM_WINTER) {
+                val qty = p.quantity
+                itemSalesRevenue += p.price * qty
+                itemCostOfSales += (p.costPrice ?: 0.0) * qty
+            }
+        }
+        val itemProfit = itemSalesRevenue - itemCostOfSales
+
         return MonthlyReport(
             month = month,
             year = year,
@@ -59,6 +76,9 @@ class ReportRepository @Inject constructor(
             expensesByCategory = expensesByCategory,
             totalSalaries = totalSalaries,
             netForMonth = cashCollected - totalExpenses - totalSalaries,
+            itemSalesRevenue = itemSalesRevenue,
+            itemCostOfSales = itemCostOfSales,
+            itemProfit = itemProfit,
         )
     }
 }

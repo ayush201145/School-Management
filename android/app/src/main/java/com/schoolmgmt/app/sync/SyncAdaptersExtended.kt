@@ -267,6 +267,7 @@ object ItemVariantSyncAdapter : SyncTableAdapter {
             classId = (fields["classId"] as? String) ?: existing?.classId,
             size = (fields["size"] as? String) ?: existing?.size,
             price = (fields["price"] as? Double) ?: existing?.price ?: 0.0,
+            costPrice = (fields["costPrice"] as? Double) ?: existing?.costPrice,
             stockQuantity = (fields["stockQuantity"] as? Double)?.toInt() ?: existing?.stockQuantity ?: 0,
             isActive = (fields["isActive"] as? Boolean) ?: existing?.isActive ?: true,
             updatedAt = updatedAtMillis,
