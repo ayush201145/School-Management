@@ -1,6 +1,8 @@
 package com.schoolmgmt.app.ui.students
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -35,12 +39,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.schoolmgmt.app.data.local.entity.AcademicYearEntity
 import com.schoolmgmt.app.data.local.entity.FeeStatus
 import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
 import com.schoolmgmt.app.data.local.entity.WithdrawalReason
 import com.schoolmgmt.app.ui.payments.RecordPaymentDialog
 import com.schoolmgmt.app.ui.payments.RecordBulkPaymentDialog
 import com.schoolmgmt.app.ui.purchases.PurchaseItemDialog
+import kotlinx.coroutines.flow.flowOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +56,10 @@ fun StudentDetailScreen(
     viewModel: StudentDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val academicYears by viewModel.academicYears.collectAsState()
+    
     var showWithdrawDialog by remember { mutableStateOf(false) }
+    var showMigrateDialog by remember { mutableStateOf(false) }
     var feeForPayment by remember { mutableStateOf<StudentFeeEntity?>(null) }
     var showPurchaseDialog by remember { mutableStateOf(false) }
     var showBulkPaymentDialog by remember { mutableStateOf(false) }
@@ -78,6 +87,7 @@ fun StudentDetailScreen(
                     Text("Admission No: ${student.admissionNo}", style = MaterialTheme.typography.bodyMedium)
                     student.guardianName?.let { Text("Guardian: $it", style = MaterialTheme.typography.bodyMedium) }
                     student.guardianPhone?.let { Text("Phone: $it", style = MaterialTheme.typography.bodyMedium) }
+                    student.tuitionFee?.let { Text("Custom Tuition Fee: ₹${"%.2f".format(it)}", style = MaterialTheme.typography.bodyMedium) }
 
                     if (!student.isActive && student.withdrawalReason != null) {
                         Text(
@@ -90,8 +100,16 @@ fun StudentDetailScreen(
                             Text("Reinstate student")
                         }
                     } else {
-                        TextButton(onClick = { showWithdrawDialog = true }) {
-                            Text("Mark as withdrawn")
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            TextButton(onClick = { showWithdrawDialog = true }) {
+                                Text("Mark as withdrawn")
+                            }
+                            TextButton(onClick = { showMigrateDialog = true }) {
+                                Text("Migrate/Promote")
+                            }
                         }
                     }
                 }
@@ -129,17 +147,26 @@ fun StudentDetailScreen(
         )
     }
 
+    if (showMigrateDialog && uiState.student != null) {
+        MigrateStudentDialog(
+            currentTuitionFee = uiState.student?.tuitionFee,
+            academicYears = academicYears,
+            viewModel = viewModel,
+            onDismiss = { showMigrateDialog = false },
+            onConfirm = { targetClassId, targetTuitionFee ->
+                viewModel.migrateStudent(targetClassId, targetTuitionFee) {
+                    showMigrateDialog = false
+                }
+            }
+        )
+    }
+
     feeForPayment?.let { fee ->
         var remainingBalance by remember(fee.id) { mutableStateOf<Double?>(null) }
         LaunchedEffect(fee.id) {
             remainingBalance = viewModel.getRemainingBalance(fee.id)
         }
 
-        // Wait for the real remaining-balance lookup before showing the
-        // dialog, rather than briefly flashing a wrong suggested amount
-        // (the overpayment guard would still catch a bad value either
-        // way, but a correct default avoids the person needing to
-        // notice and fix it themselves on every partial payment).
         if (remainingBalance != null) {
             RecordPaymentDialog(
                 studentFeeId = fee.id,
@@ -200,49 +227,191 @@ private fun WithdrawDialog(
     onDismiss: () -> Unit,
     onConfirm: (WithdrawalReason, String?) -> Unit,
 ) {
-    var selectedReason by remember { mutableStateOf(WithdrawalReason.TRANSFERRED) }
+    var reason by remember { mutableStateOf(WithdrawalReason.TRANSFERRED) }
     var notes by remember { mutableStateOf("") }
-    var reasonMenuExpanded by remember { mutableStateOf(false) }
+    var reasonExpanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Mark student as withdrawn") },
+        title = { Text("Withdraw student") },
         text = {
             Column {
-                Text(
-                    "This keeps the student's full fee and payment history. " +
-                        "They'll stop appearing in active rosters and dues reports.",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(bottom = 12.dp),
-                )
-
-                TextButton(onClick = { reasonMenuExpanded = true }) {
-                    Text("Reason: ${selectedReason.name}")
-                }
-                DropdownMenu(expanded = reasonMenuExpanded, onDismissRequest = { reasonMenuExpanded = false }) {
-                    WithdrawalReason.entries.forEach { reason ->
-                        DropdownMenuItem(
-                            text = { Text(reason.name) },
-                            onClick = { selectedReason = reason; reasonMenuExpanded = false },
-                        )
+                Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                    OutlinedTextField(
+                        value = reason.name.lowercase().replaceFirstChar { it.uppercase() },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Reason") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { reasonExpanded = true }
+                    )
+                    DropdownMenu(
+                        expanded = reasonExpanded,
+                        onDismissRequest = { reasonExpanded = false }
+                    ) {
+                        WithdrawalReason.values().forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                                onClick = {
+                                    reason = option
+                                    reasonExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
-
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("Notes (optional)") },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    singleLine = false,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(selectedReason, notes.ifBlank { null }) }) {
+            TextButton(onClick = { onConfirm(reason, notes.ifBlank { null }) }) {
                 Text("Confirm")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MigrateStudentDialog(
+    currentTuitionFee: Double?,
+    academicYears: List<AcademicYearEntity>,
+    viewModel: StudentDetailViewModel,
+    onDismiss: () -> Unit,
+    onConfirm: (classId: String, tuitionFee: Double?) -> Unit,
+) {
+    var selectedYearId by remember { mutableStateOf<String?>(null) }
+    var selectedClassId by remember { mutableStateOf<String?>(null) }
+    var selectedClassLabel by remember { mutableStateOf("") }
+    var tuitionFeeStr by remember { mutableStateOf(currentTuitionFee?.toString() ?: "") }
+    
+    var yearExpanded by remember { mutableStateOf(false) }
+    var classExpanded by remember { mutableStateOf(false) }
+    
+    val classes by if (selectedYearId == null) {
+        flowOf(emptyList())
+    } else {
+        viewModel.observeClassesForYear(selectedYearId!!)
+    }.collectAsState(initial = emptyList())
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Migrate/Promote Student") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    "Select target academic year and class. You can optionally specify a custom tuition fee override.",
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Year selector dropdown
+                val selectedYearLabel = academicYears.firstOrNull { it.id == selectedYearId }?.label ?: "Select Academic Year"
+                Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                    OutlinedTextField(
+                        value = selectedYearLabel,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Academic Year") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { yearExpanded = true }
+                    )
+                    DropdownMenu(
+                        expanded = yearExpanded,
+                        onDismissRequest = { yearExpanded = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        academicYears.forEach { year ->
+                            DropdownMenuItem(
+                                text = { Text(year.label) },
+                                onClick = {
+                                    selectedYearId = year.id
+                                    selectedClassId = null
+                                    selectedClassLabel = ""
+                                    yearExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Class selector dropdown
+                if (selectedYearId != null) {
+                    Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        OutlinedTextField(
+                            value = selectedClassLabel.ifBlank { "Select Class" },
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Class") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { classExpanded = true }
+                        )
+                        DropdownMenu(
+                            expanded = classExpanded,
+                            onDismissRequest = { classExpanded = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            classes.forEach { schoolClass ->
+                                DropdownMenuItem(
+                                    text = { Text(schoolClass.name) },
+                                    onClick = {
+                                        selectedClassId = schoolClass.id
+                                        selectedClassLabel = schoolClass.name
+                                        classExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Custom tuition fee override input field
+                OutlinedTextField(
+                    value = tuitionFeeStr,
+                    onValueChange = { tuitionFeeStr = it },
+                    label = { Text("Custom Tuition Fee Override (Optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = selectedClassId != null,
+                onClick = {
+                    val parsedFee = tuitionFeeStr.toDoubleOrNull()
+                    onConfirm(selectedClassId!!, parsedFee)
+                }
+            ) {
+                Text("Migrate")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
     )
 }

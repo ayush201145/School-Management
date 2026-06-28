@@ -14,8 +14,10 @@ class StudentRepository @Inject constructor(
     private val studentDao = db.studentDao()
 
     fun observeAll() = studentDao.observeAll()
+    fun observeByAcademicYear(yearId: String) = studentDao.observeByAcademicYear(yearId)
     fun observeBySection(sectionId: String) = studentDao.observeBySection(sectionId)
     fun search(query: String) = studentDao.search(query)
+    fun searchByAcademicYear(yearId: String, query: String) = studentDao.searchByAcademicYear(yearId, query)
     suspend fun getById(id: String) = studentDao.getById(id)
 
     /**

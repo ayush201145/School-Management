@@ -3,6 +3,7 @@ package com.schoolmgmt.app.ui.students
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.schoolmgmt.app.data.local.entity.StudentEntity
+import com.schoolmgmt.app.data.repository.AcademicRepository
 import com.schoolmgmt.app.data.repository.StudentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,18 +20,26 @@ data class StudentListUiState(
     val students: List<StudentEntity> = emptyList(),
 )
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class StudentListViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
+    private val academicRepository: AcademicRepository,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
 
-    // flatMapLatest so typing a new character cancels the previous
-    // search's Flow collection rather than leaving multiple stale
-    // queries running and racing to update the UI.
-    private val studentsFlow = searchQuery.flatMapLatest { query ->
-        if (query.isBlank()) studentRepository.observeAll() else studentRepository.search(query)
+    private val selectedYear = academicRepository.observeSelectedYear()
+
+    private val studentsFlow = combine(selectedYear, searchQuery) { year, query ->
+        year to query
+    }.flatMapLatest { (year, query) ->
+        val yearId = year?.id ?: ""
+        if (query.isBlank()) {
+            studentRepository.observeByAcademicYear(yearId)
+        } else {
+            studentRepository.searchByAcademicYear(yearId, query)
+        }
     }
 
     val uiState: StateFlow<StudentListUiState> = combine(searchQuery, studentsFlow) { query, students ->

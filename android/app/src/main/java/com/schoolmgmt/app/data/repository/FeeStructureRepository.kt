@@ -2,6 +2,7 @@ package com.schoolmgmt.app.data.repository
 
 import androidx.room.withTransaction
 import com.schoolmgmt.app.data.local.AppDatabase
+import com.schoolmgmt.app.data.local.entity.AcademicYearEntity
 import com.schoolmgmt.app.data.local.entity.FeeStructureEntity
 import com.schoolmgmt.app.data.local.entity.SchoolClassEntity
 import com.schoolmgmt.app.data.local.entity.SectionEntity
@@ -12,6 +13,11 @@ import java.time.ZoneId
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 
 @Singleton
 class AcademicRepository @Inject constructor(
@@ -21,7 +27,32 @@ class AcademicRepository @Inject constructor(
     private val schoolClassDao = db.schoolClassDao()
     private val sectionDao = db.sectionDao()
 
+    private val _selectedYearId = MutableStateFlow<String?>(null)
+    val selectedYearId: StateFlow<String?> = _selectedYearId.asStateFlow()
+
+    fun selectYearId(id: String?) {
+        _selectedYearId.value = id
+    }
+
+    suspend fun getSelectedYearId(): String {
+        return _selectedYearId.value ?: academicYearDao.getCurrent()?.id ?: ""
+    }
+
+    fun observeYears(): Flow<List<AcademicYearEntity>> = academicYearDao.observeAll()
+
+    fun observeSelectedYear(): Flow<AcademicYearEntity?> = combine(
+        academicYearDao.observeAll(),
+        _selectedYearId
+    ) { years, selectedId ->
+        if (selectedId == null) {
+            years.firstOrNull { it.isCurrent } ?: years.firstOrNull()
+        } else {
+            years.firstOrNull { it.id == selectedId }
+        }
+    }
+
     fun observeClasses() = schoolClassDao.observeAll()
+    fun observeClassesForYear(yearId: String) = schoolClassDao.observeByYear(yearId)
     fun observeSections(classId: String) = sectionDao.observeByClass(classId)
     fun observeSectionsWithTeacher(classId: String) = sectionDao.observeByClassWithTeacher(classId)
     fun observeAllSectionsWithClassName() = sectionDao.observeAllWithClassName()

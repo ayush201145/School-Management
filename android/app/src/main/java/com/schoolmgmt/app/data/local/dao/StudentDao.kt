@@ -73,6 +73,17 @@ interface StudentDao {
     @Query("SELECT * FROM students WHERE isDeleted = 0 ORDER BY firstName ASC")
     fun observeAll(): Flow<List<StudentEntity>>
 
+    @Query(
+        """
+        SELECT s.* FROM students s
+        INNER JOIN sections sec ON sec.id = s.sectionId
+        INNER JOIN school_classes c ON c.id = sec.classId
+        WHERE s.isDeleted = 0 AND c.academicYearId = :yearId
+        ORDER BY s.firstName ASC
+        """
+    )
+    fun observeByAcademicYear(yearId: String): Flow<List<StudentEntity>>
+
     @Query("SELECT * FROM students WHERE sectionId = :sectionId AND isDeleted = 0 ORDER BY firstName ASC")
     fun observeBySection(sectionId: String): Flow<List<StudentEntity>>
 
@@ -92,6 +103,21 @@ interface StudentDao {
         """
     )
     fun search(query: String): Flow<List<StudentEntity>>
+
+    @Query(
+        """
+        SELECT s.* FROM students s
+        INNER JOIN sections sec ON sec.id = s.sectionId
+        INNER JOIN school_classes c ON c.id = sec.classId
+        WHERE s.isDeleted = 0 AND c.academicYearId = :yearId
+        AND (s.firstName LIKE '%' || :query || '%' 
+             OR s.lastName LIKE '%' || :query || '%' 
+             OR s.admissionNo LIKE '%' || :query || '%'
+             OR s.guardianPhone LIKE '%' || :query || '%')
+        ORDER BY s.firstName ASC
+        """
+    )
+    fun searchByAcademicYear(yearId: String, query: String): Flow<List<StudentEntity>>
 
     @Query("SELECT admissionNo FROM students")
     suspend fun getAllAdmissionNumbers(): List<String>

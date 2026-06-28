@@ -2,7 +2,9 @@ package com.schoolmgmt.app.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.schoolmgmt.app.data.local.entity.AcademicYearEntity
 import com.schoolmgmt.app.data.local.entity.UserRole
+import com.schoolmgmt.app.data.repository.AcademicRepository
 import com.schoolmgmt.app.data.repository.AuthRepository
 import com.schoolmgmt.app.sync.SyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,6 +18,7 @@ import javax.inject.Inject
 class DashboardViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val syncScheduler: SyncScheduler,
+    private val academicRepository: AcademicRepository,
 ) : ViewModel() {
 
     /**
@@ -26,6 +29,15 @@ class DashboardViewModel @Inject constructor(
      */
     val role: StateFlow<UserRole?> = authRepository.roleFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val academicYears: StateFlow<List<AcademicYearEntity>> = academicRepository.observeYears()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val selectedYearId: StateFlow<String?> = academicRepository.selectedYearId
+
+    fun selectYearId(id: String?) {
+        academicRepository.selectYearId(id)
+    }
 
     fun syncNow() {
         syncScheduler.syncNow()

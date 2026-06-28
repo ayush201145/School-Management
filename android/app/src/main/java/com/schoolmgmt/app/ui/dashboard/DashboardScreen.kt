@@ -1,7 +1,10 @@
 package com.schoolmgmt.app.ui.dashboard
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
@@ -19,6 +23,8 @@ import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,6 +35,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -59,10 +68,13 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val role by viewModel.role.collectAsState()
+    val academicYears by viewModel.academicYears.collectAsState()
+    val selectedYearId by viewModel.selectedYearId.collectAsState()
 
-    // All tiles defined once with their role visibility, then filtered —
-    // adding a new tile means adding one entry here, not branching logic
-    // scattered through the layout.
+    val activeYear = academicYears.firstOrNull { it.id == selectedYearId }
+        ?: academicYears.firstOrNull { it.isCurrent }
+        ?: academicYears.firstOrNull()
+
     val allTiles = listOf(
         DashboardTile("Students", Icons.Filled.People, setOf(UserRole.ADMIN, UserRole.ACCOUNTANT, UserRole.TEACHER), onNavigateToStudents),
         DashboardTile("Teachers", Icons.Filled.Person, setOf(UserRole.ADMIN), onNavigateToTeachers),
@@ -70,11 +82,6 @@ fun DashboardScreen(
         DashboardTile("Transactions", Icons.Filled.Receipt, setOf(UserRole.ADMIN, UserRole.ACCOUNTANT), onNavigateToTransactions),
         DashboardTile("Inventory", Icons.Filled.Inventory, setOf(UserRole.ADMIN, UserRole.ACCOUNTANT), onNavigateToInventory),
         DashboardTile("Fee Structures", Icons.Filled.AccountBalance, setOf(UserRole.ADMIN), onNavigateToFeeStructures),
-        // Reusing already-verified icons rather than introducing new,
-        // unverified Material icon names (Person for staff, Receipt
-        // for expenses, AccountBalance for the report — same icons as
-        // above, distinguishable by label since this app prioritizes
-        // function over icon variety).
         DashboardTile("Staff", Icons.Filled.Person, setOf(UserRole.ADMIN), onNavigateToStaff),
         DashboardTile("Expenses", Icons.Filled.Receipt, setOf(UserRole.ADMIN, UserRole.ACCOUNTANT), onNavigateToExpenses),
         DashboardTile("Monthly Report", Icons.Filled.AccountBalance, setOf(UserRole.ADMIN, UserRole.ACCOUNTANT), onNavigateToMonthlyReport),
@@ -97,25 +104,71 @@ fun DashboardScreen(
         },
     ) { padding ->
         if (role == null) {
-            // Loading the cached role from DataStore — brief, but real;
-            // showing nothing rather than a wrong tile set avoids a
-            // flash of incorrect content.
             return@Scaffold
         }
 
         val visibleTiles = allTiles.filter { role in it.visibleTo }
 
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(visibleTiles) { tile ->
-                DashboardTileCard(tile)
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // Academic Year Selector Dropdown
+            var dropdownExpanded by remember { mutableStateOf(false) }
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .clickable { dropdownExpanded = true },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = "Active Academic Year", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = activeYear?.label ?: "Loading...",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Box {
+                        IconButton(onClick = { dropdownExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.ExpandMore,
+                                contentDescription = "Select Academic Year"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = dropdownExpanded,
+                            onDismissRequest = { dropdownExpanded = false }
+                        ) {
+                            academicYears.forEach { year ->
+                                DropdownMenuItem(
+                                    text = { Text(year.label + if (year.isCurrent) " (Current)" else "") },
+                                    onClick = {
+                                        viewModel.selectYearId(year.id)
+                                        dropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(visibleTiles) { tile ->
+                    DashboardTileCard(tile)
+                }
             }
         }
     }

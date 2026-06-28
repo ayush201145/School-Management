@@ -8,13 +8,17 @@ import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
 import com.schoolmgmt.app.data.local.entity.WithdrawalReason
 import com.schoolmgmt.app.data.repository.FeeRepository
 import com.schoolmgmt.app.data.repository.StudentRepository
+import com.schoolmgmt.app.data.repository.AcademicRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 import com.schoolmgmt.app.data.local.entity.FeeStatus
+import com.schoolmgmt.app.data.local.entity.AcademicYearEntity
 
 data class StudentDetailUiState(
     val student: StudentEntity? = null,
@@ -26,6 +30,7 @@ data class StudentDetailUiState(
 class StudentDetailViewModel @Inject constructor(
     private val studentRepository: StudentRepository,
     private val feeRepository: FeeRepository,
+    private val academicRepository: AcademicRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -33,6 +38,9 @@ class StudentDetailViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(StudentDetailUiState())
     val uiState: StateFlow<StudentDetailUiState> = _uiState
+
+    val academicYears: StateFlow<List<AcademicYearEntity>> = academicRepository.observeYears()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch {
@@ -46,6 +54,8 @@ class StudentDetailViewModel @Inject constructor(
             }
         }
     }
+
+    fun observeClassesForYear(yearId: String) = academicRepository.observeClassesForYear(yearId)
 
     fun withdraw(reason: WithdrawalReason, notes: String?, onDone: () -> Unit) {
         viewModelScope.launch {
@@ -62,6 +72,26 @@ class StudentDetailViewModel @Inject constructor(
             studentRepository.reinstateStudent(studentId)
             studentRepository.getById(studentId)?.let { student ->
                 _uiState.value = _uiState.value.copy(student = student)
+            }
+        }
+    }
+
+    fun migrateStudent(classId: String, newTuitionFee: Double?, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val student = uiState.value.student ?: return@launch
+            try {
+                val sectionId = academicRepository.getDefaultSectionForClass(classId)
+                val updated = student.copy(
+                    sectionId = sectionId,
+                    tuitionFee = newTuitionFee,
+                    updatedAt = System.currentTimeMillis()
+                )
+                studentRepository.updateStudent(updated)
+                // Reload student info in UI
+                _uiState.value = _uiState.value.copy(student = updated)
+                onSuccess()
+            } catch (e: Exception) {
+                // Handle or log error
             }
         }
     }
