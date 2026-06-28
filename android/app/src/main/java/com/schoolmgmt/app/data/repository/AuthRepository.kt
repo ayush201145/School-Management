@@ -10,6 +10,9 @@ import com.schoolmgmt.app.data.remote.dto.UserDto
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 class LoginFailedException(message: String) : Exception(message)
 
 @Singleton
@@ -45,7 +48,10 @@ class AuthRepository @Inject constructor(
         cacheUser(response.user)
     }
 
-    suspend fun logout() = authPreferences.clearSession()
+    suspend fun logout() = withContext(Dispatchers.IO) {
+        authPreferences.clearSession()
+        db.clearAllTables()
+    }
 
     suspend fun getCurrentUserId(): String? = authPreferences.getCurrentUserId()
 
