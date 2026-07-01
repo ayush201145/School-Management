@@ -2,6 +2,7 @@ package com.schoolmgmt.app.ui.attendance
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.schoolmgmt.app.data.local.AppDatabase
 import com.schoolmgmt.app.data.local.entity.AttendanceEntity
 import com.schoolmgmt.app.data.local.entity.AttendanceStatus

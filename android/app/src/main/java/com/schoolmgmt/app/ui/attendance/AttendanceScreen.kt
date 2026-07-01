@@ -107,7 +107,7 @@ fun AttendanceScreen(
                             modifier = Modifier.padding(end = 8.dp)
                         ) {
                             if (isSaving) {
-                                CircularProgressIndicator(size = 18.dp, color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
                             } else {
                                 Icon(Icons.Filled.Check, contentDescription = "Save", modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -274,7 +274,7 @@ fun StudentAttendanceRow(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "Roll No: ${student.rollNo ?: "N/A"} · Adm: ${student.admissionNo}",
+                text = "Adm No: ${student.admissionNo}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -319,7 +319,7 @@ fun AttendanceStatusButton(
     onClick: () -> Unit
 ) {
     val bgColor = if (isSelected) selectedBg else MaterialTheme.colorScheme.surfaceVariant
-    val textColor = if (isSelected) Color.WHITE else MaterialTheme.colorScheme.onSurfaceVariant
+    val textColor = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     val fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
 
     Box(
