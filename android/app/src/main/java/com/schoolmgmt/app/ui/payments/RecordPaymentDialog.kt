@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.schoolmgmt.app.data.local.entity.PaymentMode
+import com.schoolmgmt.app.data.repository.ReceiptItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -146,7 +147,7 @@ fun RecordBulkPaymentDialog(
     studentId: String,
     suggestedAmount: Double,
     onDismiss: () -> Unit,
-    onPaymentRecorded: (receiptNo: String, paidAmount: Double, mode: String) -> Unit,
+    onPaymentRecorded: (receiptNo: String, paidAmount: Double, mode: String, items: List<ReceiptItem>) -> Unit,
     viewModel: RecordPaymentViewModel = hiltViewModel(),
 ) {
     var amountText by remember { mutableStateOf(if (suggestedAmount > 0) "%.2f".format(suggestedAmount) else "") }
@@ -240,9 +241,9 @@ fun RecordBulkPaymentDialog(
                         mode = selectedMode,
                         referenceNo = referenceNo,
                         notes = notes,
-                        onSuccess = {
+                        onSuccess = { items ->
                             val finalRef = referenceNo.ifBlank { "TXN-${System.currentTimeMillis() % 100000}" }
-                            onPaymentRecorded(finalRef, amount, selectedMode.name)
+                            onPaymentRecorded(finalRef, amount, selectedMode.name, items)
                         },
                     )
                 },

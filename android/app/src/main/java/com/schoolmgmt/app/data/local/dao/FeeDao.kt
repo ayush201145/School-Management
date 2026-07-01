@@ -13,6 +13,7 @@ import com.schoolmgmt.app.data.local.entity.FeeStructureEntity
 import com.schoolmgmt.app.data.local.entity.PaymentEntity
 import com.schoolmgmt.app.data.local.entity.StudentEntity
 import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
+import com.schoolmgmt.app.data.local.entity.InvoiceSettingsEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -34,6 +35,9 @@ interface FeeCategoryDao {
 
     @Query("UPDATE fee_categories SET syncedAt = :syncedAt WHERE id = :id")
     suspend fun markSynced(id: String, syncedAt: Long)
+
+    @Query("UPDATE fee_categories SET isDeleted = 1, updatedAt = :now WHERE id = :id")
+    suspend fun deleteCategory(id: String, now: Long)
 }
 
 @Dao
@@ -254,5 +258,26 @@ interface PaymentDao {
     suspend fun getUnsyncedChanges(): List<PaymentEntity>
 
     @Query("UPDATE payments SET syncedAt = :syncedAt WHERE id = :id")
+    suspend fun markSynced(id: String, syncedAt: Long)
+}
+
+@Dao
+interface InvoiceSettingsDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(settings: InvoiceSettingsEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(settingsList: List<InvoiceSettingsEntity>)
+
+    @Query("SELECT * FROM invoice_settings LIMIT 1")
+    suspend fun getSettings(): InvoiceSettingsEntity?
+
+    @Query("SELECT * FROM invoice_settings LIMIT 1")
+    fun observeSettings(): Flow<InvoiceSettingsEntity?>
+
+    @Query("SELECT * FROM invoice_settings WHERE syncedAt IS NULL OR updatedAt > syncedAt")
+    suspend fun getUnsyncedChanges(): List<InvoiceSettingsEntity>
+
+    @Query("UPDATE invoice_settings SET syncedAt = :syncedAt WHERE id = :id")
     suspend fun markSynced(id: String, syncedAt: Long)
 }

@@ -18,6 +18,7 @@ import com.schoolmgmt.app.ui.students.StudentDetailScreen
 import com.schoolmgmt.app.ui.students.StudentListScreen
 import com.schoolmgmt.app.ui.teachers.TeacherListScreen
 import com.schoolmgmt.app.ui.transactions.TransactionsScreen
+import com.schoolmgmt.app.ui.attendance.AttendanceScreen
 
 /** Centralized route definitions — avoids magic strings scattered across screens. */
 object Routes {
@@ -34,6 +35,7 @@ object Routes {
     const val STAFF_DETAIL = "staff/{staffId}"
     const val EXPENSES = "expenses"
     const val MONTHLY_REPORT = "monthly-report"
+    const val ATTENDANCE = "attendance"
 
     fun studentDetail(studentId: String) = "students/$studentId"
     fun staffDetail(staffId: String) = "staff/$staffId"
@@ -66,6 +68,7 @@ fun SchoolManagementNavHost(navController: NavHostController = rememberNavContro
                 onNavigateToStaff = { navController.navigate(Routes.STAFF_LIST) },
                 onNavigateToExpenses = { navController.navigate(Routes.EXPENSES) },
                 onNavigateToMonthlyReport = { navController.navigate(Routes.MONTHLY_REPORT) },
+                onNavigateToAttendance = { navController.navigate(Routes.ATTENDANCE) },
                 onLoggedOut = {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(0) { inclusive = true } // clear entire back stack on logout
@@ -134,6 +137,10 @@ fun SchoolManagementNavHost(navController: NavHostController = rememberNavContro
 
         composable(Routes.MONTHLY_REPORT) {
             MonthlyReportScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Routes.ATTENDANCE) {
+            AttendanceScreen(onBack = { navController.popBackStack() })
         }
     }
 }

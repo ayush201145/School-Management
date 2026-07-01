@@ -8,6 +8,7 @@ import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
 import com.schoolmgmt.app.data.local.entity.StudentItemPurchaseEntity
 import com.schoolmgmt.app.data.local.entity.AcademicYearEntity
 import com.schoolmgmt.app.data.local.entity.TeacherAttendanceEntity
+import com.schoolmgmt.app.data.local.entity.InvoiceSettingsEntity
 
 fun AcademicYearEntity.toWireMap(): Map<String, Any?> = mapOf(
     "label" to label,
@@ -106,4 +107,16 @@ fun com.schoolmgmt.app.data.local.entity.InventoryTransactionEntity.toWireMap():
     "note" to note,
     "recordedById" to recordedById,
     "purchaseId" to purchaseId,
+)
+
+fun InvoiceSettingsEntity.toWireMap(): Map<String, Any?> = mapOf(
+    "schoolName" to schoolName,
+    "address" to address,
+    "phone" to phone,
+    "email" to email,
+    "footerNote" to footerNote,
+    "thermalWidth" to thermalWidth,
+    "marginSize" to marginSize,
+    "headerFontSize" to headerFontSize,
+    "bodyFontSize" to bodyFontSize,
 )

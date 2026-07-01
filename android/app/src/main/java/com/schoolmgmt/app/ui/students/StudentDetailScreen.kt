@@ -58,7 +58,7 @@ data class ReceiptData(
     val studentName: String,
     val admissionNo: String,
     val className: String,
-    val particulars: String,
+    val items: List<com.schoolmgmt.app.data.repository.ReceiptItem>,
     val remainingDues: Double,
 )
 
@@ -203,7 +203,7 @@ fun StudentDetailScreen(
                             studentName = "${student.firstName} ${student.lastName}",
                             admissionNo = student.admissionNo,
                             className = cName,
-                            particulars = fee.description,
+                            items = listOf(com.schoolmgmt.app.data.repository.ReceiptItem(fee.description, paidAmount)),
                             remainingDues = totalDues
                         )
                     }
@@ -232,7 +232,7 @@ fun StudentDetailScreen(
                 studentId = studentId,
                 suggestedAmount = totalOutstanding ?: 0.0,
                 onDismiss = { showBulkPaymentDialog = false },
-                onPaymentRecorded = { receiptNo, paidAmount, mode ->
+                onPaymentRecorded = { receiptNo, paidAmount, mode, items ->
                     showBulkPaymentDialog = false
                     scope.launch {
                         val cName = viewModel.getClassNameForSection(student.sectionId)
@@ -244,7 +244,7 @@ fun StudentDetailScreen(
                             studentName = "${student.firstName} ${student.lastName}",
                             admissionNo = student.admissionNo,
                             className = cName,
-                            particulars = "Bulk Dues Payment (FIFO)",
+                            items = items,
                             remainingDues = totalDues
                         )
                     }
@@ -259,7 +259,7 @@ fun StudentDetailScreen(
             studentName = data.studentName,
             admissionNo = data.admissionNo,
             className = data.className,
-            particulars = data.particulars,
+            items = data.items,
             paidAmount = data.paidAmount,
             mode = data.mode,
             remainingDues = data.remainingDues,

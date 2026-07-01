@@ -108,6 +108,13 @@ const SYNC_TABLES = {
       "spentAt", "mode", "referenceNo", "recordedById",
     ],
   },
+  InvoiceSettings: {
+    prismaModel: "invoiceSettings",
+    writableFields: [
+      "schoolName", "address", "phone", "email", "footerNote",
+      "thermalWidth", "marginSize", "headerFontSize", "bodyFontSize"
+    ],
+  },
 };
 
 function isSyncable(tableName) {

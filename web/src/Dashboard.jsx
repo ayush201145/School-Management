@@ -4,7 +4,10 @@ import UserManagement from './UserManagement';
 import AcademicYears from './AcademicYears';
 import InventoryManagement from './InventoryManagement';
 import Reports from './Reports';
-import { Users, Calendar, Package, BarChart3, LogOut, School, Shield } from 'lucide-react';
+import Attendance from './Attendance';
+import InvoiceSettings from './InvoiceSettings';
+import FeeConfiguration from './FeeConfiguration';
+import { Users, Calendar, Package, BarChart3, LogOut, School, Shield, CheckSquare, Settings, CreditCard } from 'lucide-react';
 
 export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('');
@@ -16,8 +19,11 @@ export default function Dashboard({ user, onLogout }) {
   const menuItems = [
     { id: 'users', label: 'User Accounts', icon: Users, roles: ['MASTER'], component: UserManagement },
     { id: 'years', label: 'Academic Years', icon: Calendar, roles: ['MASTER', 'ADMIN'], component: AcademicYears },
+    { id: 'fees', label: 'Fee Configuration', icon: CreditCard, roles: ['MASTER', 'ADMIN'], component: FeeConfiguration },
+    { id: 'attendance', label: 'Student Attendance', icon: CheckSquare, roles: ['MASTER', 'ADMIN', 'TEACHER'], component: Attendance },
     { id: 'inventory', label: 'Inventory & Stock', icon: Package, roles: ['MASTER', 'ADMIN', 'ACCOUNTANT'], component: InventoryManagement },
     { id: 'reports', label: 'Financial Reports', icon: BarChart3, roles: ['MASTER', 'ADMIN', 'ACCOUNTANT'], component: Reports },
+    { id: 'invoice-settings', label: 'Invoice Settings', icon: Settings, roles: ['MASTER'], component: InvoiceSettings },
   ];
 
   const visibleMenuItems = menuItems.filter(item => item.roles.includes(user.role));

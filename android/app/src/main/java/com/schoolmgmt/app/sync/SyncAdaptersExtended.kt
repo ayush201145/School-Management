@@ -19,6 +19,7 @@ import com.schoolmgmt.app.data.local.entity.StudentFeeEntity
 import com.schoolmgmt.app.data.local.entity.StudentItemPurchaseEntity
 import com.schoolmgmt.app.data.local.entity.AcademicYearEntity
 import com.schoolmgmt.app.data.local.entity.TeacherAttendanceEntity
+import com.schoolmgmt.app.data.local.entity.InvoiceSettingsEntity
 
 object AcademicYearSyncAdapter : SyncTableAdapter {
     override val tableName = "AcademicYear"
@@ -355,4 +356,33 @@ object FeeStructureSyncAdapter : SyncTableAdapter {
     }
 
     override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.feeStructureDao().markSynced(id, syncedAt)
+}
+
+object InvoiceSettingsSyncAdapter : SyncTableAdapter {
+    override val tableName = "InvoiceSettings"
+
+    override suspend fun getUnsynced(db: AppDatabase): List<Pair<String, Map<String, Any?>>> =
+        db.invoiceSettingsDao().getUnsyncedChanges().map { it.id to it.toWireMap() }
+
+    override suspend fun applyFromServer(db: AppDatabase, id: String, fields: Map<String, Any?>, updatedAtMillis: Long, isDeleted: Boolean) {
+        val existing = db.invoiceSettingsDao().getSettings()
+        val merged = InvoiceSettingsEntity(
+            id = id,
+            schoolName = (fields["schoolName"] as? String) ?: existing?.schoolName ?: "ABC Public School",
+            address = (fields["address"] as? String) ?: existing?.address,
+            phone = (fields["phone"] as? String) ?: existing?.phone,
+            email = (fields["email"] as? String) ?: existing?.email,
+            footerNote = (fields["footerNote"] as? String) ?: existing?.footerNote,
+            thermalWidth = (fields["thermalWidth"] as? Number)?.toInt() ?: existing?.thermalWidth ?: 576,
+            marginSize = (fields["marginSize"] as? Number)?.toInt() ?: existing?.marginSize ?: 20,
+            headerFontSize = (fields["headerFontSize"] as? Number)?.toInt() ?: existing?.headerFontSize ?: 28,
+            bodyFontSize = (fields["bodyFontSize"] as? Number)?.toInt() ?: existing?.bodyFontSize ?: 14,
+            updatedAt = updatedAtMillis,
+            isDeleted = isDeleted,
+            syncedAt = updatedAtMillis,
+        )
+        db.invoiceSettingsDao().upsert(merged)
+    }
+
+    override suspend fun markSynced(db: AppDatabase, id: String, syncedAt: Long) = db.invoiceSettingsDao().markSynced(id, syncedAt)
 }

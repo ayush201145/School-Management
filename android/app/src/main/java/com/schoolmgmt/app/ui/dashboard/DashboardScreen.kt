@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -80,6 +81,7 @@ fun DashboardScreen(
     onNavigateToStaff: () -> Unit,
     onNavigateToExpenses: () -> Unit,
     onNavigateToMonthlyReport: () -> Unit,
+    onNavigateToAttendance: () -> Unit,
     onLoggedOut: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
@@ -106,6 +108,7 @@ fun DashboardScreen(
         DashboardTile("Staff", Icons.Filled.Person, setOf(UserRole.ADMIN), Brush.linearGradient(listOf(Color(0xFF795548), Color(0xFFA1887F))), onNavigateToStaff),
         DashboardTile("Expenses", Icons.Filled.Receipt, setOf(UserRole.ADMIN, UserRole.ACCOUNTANT), Brush.linearGradient(listOf(Color(0xFFE53935), Color(0xFFD81B60))), onNavigateToExpenses),
         DashboardTile("Monthly Report", Icons.Filled.AccountBalance, setOf(UserRole.ADMIN, UserRole.ACCOUNTANT), Brush.linearGradient(listOf(Color(0xFF00ACC1), Color(0xFF00838F))), onNavigateToMonthlyReport),
+        DashboardTile("Attendance", Icons.Filled.DateRange, setOf(UserRole.ADMIN, UserRole.TEACHER), Brush.linearGradient(listOf(Color(0xFF4CAF50), Color(0xFF8BC34A))), onNavigateToAttendance),
     )
 
     Scaffold(

@@ -28,6 +28,41 @@ class FeeRepository @Inject constructor(
 ) {
     private val studentFeeDao = db.studentFeeDao()
     private val paymentDao = db.paymentDao()
+    private val invoiceSettingsDao = db.invoiceSettingsDao()
+    private val feeCategoryDao = db.feeCategoryDao()
+
+    fun observeInvoiceSettings(): Flow<com.schoolmgmt.app.data.local.entity.InvoiceSettingsEntity?> =
+        invoiceSettingsDao.observeSettings()
+
+    suspend fun getInvoiceSettings(): com.schoolmgmt.app.data.local.entity.InvoiceSettingsEntity? =
+        invoiceSettingsDao.getSettings()
+
+    fun observeFeeCategories(): Flow<List<com.schoolmgmt.app.data.local.entity.FeeCategoryEntity>> =
+        feeCategoryDao.observeAll()
+
+    suspend fun createFeeCategory(name: String, description: String? = null) {
+        val cat = com.schoolmgmt.app.data.local.entity.FeeCategoryEntity(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            description = description,
+            updatedAt = System.currentTimeMillis()
+        )
+        feeCategoryDao.upsert(cat)
+    }
+
+    suspend fun updateFeeCategory(id: String, name: String, description: String? = null) {
+        val existing = feeCategoryDao.getById(id) ?: return
+        val updated = existing.copy(
+            name = name,
+            description = description,
+            updatedAt = System.currentTimeMillis()
+        )
+        feeCategoryDao.upsert(updated)
+    }
+
+    suspend fun deleteFeeCategory(id: String) {
+        feeCategoryDao.deleteCategory(id, System.currentTimeMillis())
+    }
 
     fun observeDues(sectionId: String? = null, overdueOnly: Boolean = false): Flow<List<DueRow>> =
         studentFeeDao.observeDues(sectionId = sectionId, overdueOnly = overdueOnly)
@@ -121,16 +156,17 @@ class FeeRepository @Inject constructor(
         referenceNo: String? = null,
         notes: String? = null,
         paidAt: Long = System.currentTimeMillis()
-    ): List<PaymentEntity> = db.withTransaction {
+    ): BulkPaymentResult = db.withTransaction {
         require(totalAmount > 0) { "Amount must be greater than 0" }
         
         val unpaidFees = studentFeeDao.getUnpaidForStudentOnce(studentId)
         if (unpaidFees.isEmpty()) {
-            return@withTransaction emptyList()
+            return@withTransaction BulkPaymentResult(emptyList(), emptyList())
         }
         
         var remainingPayment = totalAmount
         val paymentsCreated = mutableListOf<PaymentEntity>()
+        val itemsPaid = mutableListOf<ReceiptItem>()
         
         for (fee in unpaidFees) {
             if (remainingPayment <= 0.0) break
@@ -156,6 +192,7 @@ class FeeRepository @Inject constructor(
             )
             paymentDao.upsert(payment)
             paymentsCreated.add(payment)
+            itemsPaid.add(ReceiptItem(fee.description, allocation))
             
             val newTotalPaid = alreadyPaid + allocation
             val newStatus = when {
@@ -170,9 +207,12 @@ class FeeRepository @Inject constructor(
             remainingPayment -= allocation
         }
         
-        return@withTransaction paymentsCreated
+        return@withTransaction BulkPaymentResult(paymentsCreated, itemsPaid)
     }
 
     /** Creates an ad-hoc or structure-derived StudentFee row (used by bulk-assign, see FeeStructureRepository). */
     suspend fun createStudentFee(fee: StudentFeeEntity) = studentFeeDao.upsert(fee)
 }
+
+data class ReceiptItem(val description: String, val amount: Double)
+data class BulkPaymentResult(val payments: List<PaymentEntity>, val items: List<ReceiptItem>)

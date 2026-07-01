@@ -126,4 +126,5 @@ val SYNC_REGISTRY: List<SyncTableAdapter> = listOf(
     ExpenseCategorySyncAdapter,
     RecurringExpenseTemplateSyncAdapter,
     ExpenseSyncAdapter,
+    InvoiceSettingsSyncAdapter,
 )

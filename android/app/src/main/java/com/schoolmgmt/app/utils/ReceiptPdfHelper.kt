@@ -9,6 +9,9 @@ import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.schoolmgmt.app.data.local.AppDatabase
+import com.schoolmgmt.app.data.repository.ReceiptItem
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.FileOutputStream
 
@@ -16,19 +19,39 @@ object ReceiptPdfHelper {
 
     fun generateAndShareInvoicePdf(
         context: Context,
-        schoolName: String,
         receiptNo: String,
         dateStr: String,
         studentName: String,
         admissionNo: String,
         className: String,
-        particulars: String,
+        items: List<ReceiptItem>,
         paidAmount: Double,
         mode: String,
         remainingDues: Double,
     ) {
+        // Fetch invoice settings from local Room database
+        val settings = runBlocking {
+            try {
+                AppDatabase.getInstance(context).invoiceSettingsDao().getSettings()
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        val schoolName = settings?.schoolName ?: "ABC Public School"
+        val address = settings?.address
+        val phone = settings?.phone
+        val email = settings?.email
+        val footerNote = settings?.footerNote ?: "Thank you for your payment!"
+        val margin = settings?.marginSize ?: 20
+        val headerSize = settings?.headerFontSize ?: 28
+        val bodySize = settings?.bodyFontSize ?: 14
+
         val pdfDocument = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
+        
+        // Dynamic page height based on items list length to prevent overflow
+        val dynamicHeight = 700 + (items.size * 30)
+        val pageInfo = PdfDocument.PageInfo.Builder(595, maxOf(842, dynamicHeight), 1).create()
         val page = pdfDocument.startPage(pageInfo)
         val canvas: Canvas = page.canvas
 
@@ -37,93 +60,109 @@ object ReceiptPdfHelper {
             isAntiAlias = true
         }
 
-        var y = 60f
+        var y = margin.toFloat() + 40f
         val width = 595
 
         // School Title
         paint.apply {
-            textSize = 28f
+            textSize = headerSize.toFloat()
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
         }
         canvas.drawText(schoolName.uppercase(), (width / 2).toFloat(), y, paint)
 
-        y += 35f
-        paint.apply {
-            textSize = 18f
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        // Address & Contacts (if available)
+        val subHeaderLines = mutableListOf<String>()
+        if (!address.isNullOrBlank()) subHeaderLines.add(address)
+        val contactLine = listOfNotNull(
+            phone?.let { "Phone: $it" },
+            email?.let { "Email: $it" }
+        ).joinToString(" | ")
+        if (contactLine.isNotBlank()) subHeaderLines.add(contactLine)
+
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.textSize = (bodySize - 2).toFloat().coerceAtLeast(10f)
+        subHeaderLines.forEach { line ->
+            y += 20f
+            canvas.drawText(line, (width / 2).toFloat(), y, paint)
         }
+
+        y += 25f
+        paint.textSize = (bodySize + 4).toFloat()
         canvas.drawText("OFFICIAL PAYMENT RECEIPT", (width / 2).toFloat(), y, paint)
 
-        y += 30f
+        y += 20f
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("--------------------------------------------------------------------------", 20f, y, paint)
+        paint.textSize = bodySize.toFloat()
+        canvas.drawText("-".repeat(78), margin.toFloat() * 1.5f, y, paint)
 
         // Metadata block
-        y += 30f
-        paint.textSize = 15f
-        canvas.drawText("Receipt No: $receiptNo", 40f, y, paint)
-        canvas.drawText("Date: $dateStr", 380f, y, paint)
-
         y += 25f
-        canvas.drawText("Student Name: $studentName", 40f, y, paint)
-        canvas.drawText("Admission No: $admissionNo", 380f, y, paint)
+        canvas.drawText("Receipt No: $receiptNo", margin.toFloat() * 2f, y, paint)
+        canvas.drawText("Date: $dateStr", width - margin.toFloat() * 10f, y, paint)
 
-        y += 25f
-        canvas.drawText("Class: $className", 40f, y, paint)
+        y += 22f
+        canvas.drawText("Student Name: $studentName", margin.toFloat() * 2f, y, paint)
+        canvas.drawText("Admission No: $admissionNo", width - margin.toFloat() * 10f, y, paint)
 
-        y += 30f
-        canvas.drawText("--------------------------------------------------------------------------", 20f, y, paint)
+        y += 22f
+        canvas.drawText("Class: $className", margin.toFloat() * 2f, y, paint)
+
+        y += 20f
+        canvas.drawText("-".repeat(78), margin.toFloat() * 1.5f, y, paint)
 
         // Columns header
-        y += 30f
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("Particulars", 40f, y, paint)
-        paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("Amount", 550f, y, paint)
-
         y += 25f
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        canvas.drawText("Particulars", margin.toFloat() * 2f, y, paint)
+        paint.textAlign = Paint.Align.RIGHT
+        canvas.drawText("Amount", width - margin.toFloat() * 2f, y, paint)
+
+        y += 20f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("--------------------------------------------------------------------------", 20f, y, paint)
+        canvas.drawText("-".repeat(78), margin.toFloat() * 1.5f, y, paint)
 
-        // Particulars list
-        y += 35f
-        canvas.drawText(particulars, 40f, y, paint)
-        paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("₹${"%.2f".format(paidAmount)}", 550f, y, paint)
+        // Items list breakdown
+        items.forEach { item ->
+            y += 25f
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText(item.description, margin.toFloat() * 2f, y, paint)
+            paint.textAlign = Paint.Align.RIGHT
+            canvas.drawText("₹${"%.2f".format(item.amount)}", width - margin.toFloat() * 2f, y, paint)
+        }
 
-        y += 35f
+        y += 20f
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("--------------------------------------------------------------------------", 20f, y, paint)
+        canvas.drawText("-".repeat(78), margin.toFloat() * 1.5f, y, paint)
 
         // Totals summary
-        y += 35f
+        y += 30f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("Total Paid (${mode}):", 40f, y, paint)
+        canvas.drawText("Total Paid (${mode}):", margin.toFloat() * 2f, y, paint)
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("₹${"%.2f".format(paidAmount)}", 550f, y, paint)
+        canvas.drawText("₹${"%.2f".format(paidAmount)}", width - margin.toFloat() * 2f, y, paint)
 
-        y += 30f
+        y += 25f
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("Outstanding Dues Balance:", 40f, y, paint)
+        canvas.drawText("Outstanding Dues Balance:", margin.toFloat() * 2f, y, paint)
         paint.textAlign = Paint.Align.RIGHT
-        canvas.drawText("₹${"%.2f".format(remainingDues)}", 550f, y, paint)
+        canvas.drawText("₹${"%.2f".format(remainingDues)}", width - margin.toFloat() * 2f, y, paint)
 
-        y += 30f
+        y += 20f
         paint.textAlign = Paint.Align.LEFT
-        canvas.drawText("--------------------------------------------------------------------------", 20f, y, paint)
+        canvas.drawText("-".repeat(78), margin.toFloat() * 1.5f, y, paint)
 
         // Footer note
-        y += 50f
+        y += 40f
         paint.apply {
-            textSize = 14f
+            textSize = (bodySize - 1).toFloat()
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
             textAlign = Paint.Align.CENTER
         }
         canvas.drawText("This is an official cloud-synced receipt generated by the school app.", (width / 2).toFloat(), y, paint)
         y += 20f
-        canvas.drawText("Thank you for your payment!", (width / 2).toFloat(), y, paint)
+        canvas.drawText(footerNote, (width / 2).toFloat(), y, paint)
 
         pdfDocument.finishPage(page)
 

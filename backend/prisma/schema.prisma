@@ -618,3 +618,18 @@ model SyncConflict {
   @@index([status])
   @@index([tableName, recordId])
 }
+
+model InvoiceSettings {
+  id              String   @id @default(uuid())
+  schoolName      String   @default("ABC Public School")
+  address         String?
+  phone           String?
+  email           String?
+  footerNote      String?  @default("Thank you for your payment!")
+  thermalWidth    Int      @default(576)
+  marginSize      Int      @default(20)
+  headerFontSize  Int      @default(28)
+  bodyFontSize    Int      @default(14)
+  updatedAt       DateTime @updatedAt
+  syncedAt        DateTime?
+}

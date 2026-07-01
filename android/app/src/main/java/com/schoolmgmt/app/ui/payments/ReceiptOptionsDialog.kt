@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.schoolmgmt.app.data.repository.ReceiptItem
 import com.schoolmgmt.app.utils.ReceiptPdfHelper
 import com.schoolmgmt.app.utils.ReceiptPrintHelper
 import kotlinx.coroutines.launch
@@ -52,7 +53,7 @@ fun ReceiptOptionsDialog(
     studentName: String,
     admissionNo: String,
     className: String,
-    particulars: String,
+    items: List<ReceiptItem>,
     paidAmount: Double,
     mode: String,
     remainingDues: Double,
@@ -65,7 +66,6 @@ fun ReceiptOptionsDialog(
     var printerDropdownExpanded by remember { mutableStateOf(false) }
     var isPrinting by remember { mutableStateOf(false) }
 
-    val schoolName = "ABC Public School"
     val dateStr = java.text.SimpleDateFormat("dd-MM-yyyy", java.util.Locale.getDefault()).format(java.util.Date())
 
     // Permission launcher for Android 12+ Bluetooth permissions
@@ -116,13 +116,13 @@ fun ReceiptOptionsDialog(
         isPrinting = true
         coroutineScope.launch {
             val bitmap = ReceiptPrintHelper.drawReceiptBitmap(
-                schoolName = schoolName,
+                context = context,
                 receiptNo = receiptNo,
                 dateStr = dateStr,
                 studentName = studentName,
                 admissionNo = admissionNo,
                 className = className,
-                particulars = particulars,
+                items = items,
                 paidAmount = paidAmount,
                 mode = mode,
                 remainingDues = remainingDues
@@ -164,13 +164,12 @@ fun ReceiptOptionsDialog(
                     onClick = {
                         ReceiptPdfHelper.generateAndShareInvoicePdf(
                             context = context,
-                            schoolName = schoolName,
                             receiptNo = receiptNo,
                             dateStr = dateStr,
                             studentName = studentName,
                             admissionNo = admissionNo,
                             className = className,
-                            particulars = particulars,
+                            items = items,
                             paidAmount = paidAmount,
                             mode = mode,
                             remainingDues = remainingDues
@@ -178,34 +177,29 @@ fun ReceiptOptionsDialog(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Icon(Icons.Filled.Share, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Icon(imageVector = Icons.Filled.Share, contentDescription = "Share")
                     Text("Share PDF Receipt")
                 }
 
-                // Print Thermal Option Button (Dropdown Anchor)
+                // Bluetooth Print Option Button
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(
                         onClick = { handlePrintAction() },
                         enabled = !isPrinting,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Filled.Print, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                        Icon(imageVector = Icons.Filled.Print, contentDescription = "Print")
                         Text(if (isPrinting) "Printing..." else "Print Thermal Receipt")
                     }
 
+                    // Dropdown menu showing paired bluetooth printers
                     DropdownMenu(
                         expanded = printerDropdownExpanded,
-                        onDismissRequest = { printerDropdownExpanded = false },
-                        modifier = Modifier.fillMaxWidth()
+                        onDismissRequest = { printerDropdownExpanded = false }
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("Select paired printer:", style = MaterialTheme.typography.labelSmall) },
-                            onClick = {},
-                            enabled = false
-                        )
                         printersList.forEach { device ->
                             DropdownMenuItem(
-                                text = { Text(device.name ?: "Unknown Printer") },
+                                text = { Text(device.name ?: device.address) },
                                 onClick = {
                                     printerDropdownExpanded = false
                                     triggerBluetoothPrint(device)
@@ -218,7 +212,7 @@ fun ReceiptOptionsDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Done")
+                Text("Close")
             }
         }
     )

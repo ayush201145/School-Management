@@ -1,10 +1,12 @@
 package com.schoolmgmt.app.data.local
 
 import androidx.room.Database
+import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import android.content.Context
 import com.schoolmgmt.app.data.local.dao.AcademicYearDao
 import com.schoolmgmt.app.data.local.dao.AttendanceDao
 import com.schoolmgmt.app.data.local.dao.ExpenseCategoryDao
@@ -49,6 +51,8 @@ import com.schoolmgmt.app.data.local.entity.SyncConflictEntity
 import com.schoolmgmt.app.data.local.entity.TeacherAttendanceEntity
 import com.schoolmgmt.app.data.local.entity.TeacherEntity
 import com.schoolmgmt.app.data.local.entity.UserEntity
+import com.schoolmgmt.app.data.local.dao.InvoiceSettingsDao
+import com.schoolmgmt.app.data.local.entity.InvoiceSettingsEntity
 
 /**
  * The single Room database for the app — mirrors prisma/schema.prisma
@@ -81,8 +85,9 @@ import com.schoolmgmt.app.data.local.entity.UserEntity
         ExpenseCategoryEntity::class,
         RecurringExpenseTemplateEntity::class,
         ExpenseEntity::class,
+        InvoiceSettingsEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true, // schemas/ dir gets checked into version control — needed for migration testing
 )
 @TypeConverters(Converters::class)
@@ -105,6 +110,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun teacherAttendanceDao(): TeacherAttendanceDao
     abstract fun userDao(): UserDao
     abstract fun syncConflictDao(): SyncConflictDao
+    abstract fun invoiceSettingsDao(): InvoiceSettingsDao
     abstract fun staffDao(): StaffDao
     abstract fun salaryPaymentDao(): SalaryPaymentDao
     abstract fun expenseCategoryDao(): ExpenseCategoryDao
@@ -113,6 +119,23 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "school_management.db"
+
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        fun getInstance(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    DATABASE_NAME
+                )
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .build()
+                INSTANCE = instance
+                instance
+            }
+        }
 
         /**
          * version 1 -> 2: adds Staff, SalaryPayment, ExpenseCategory,
@@ -244,6 +267,31 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE `item_variants` ADD COLUMN `costPrice` REAL")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `invoice_settings` (
+                        `id` TEXT NOT NULL,
+                        `schoolName` TEXT NOT NULL,
+                        `address` TEXT,
+                        `phone` TEXT,
+                        `email` TEXT,
+                        `footerNote` TEXT,
+                        `thermalWidth` INTEGER NOT NULL DEFAULT 576,
+                        `marginSize` INTEGER NOT NULL DEFAULT 20,
+                        `headerFontSize` INTEGER NOT NULL DEFAULT 28,
+                        `bodyFontSize` INTEGER NOT NULL DEFAULT 14,
+                        `updatedAt` INTEGER NOT NULL,
+                        `isDeleted` INTEGER NOT NULL DEFAULT 0,
+                        `syncedAt` INTEGER,
+                        PRIMARY KEY(`id`)
+                    )
+                    """
+                )
             }
         }
     }

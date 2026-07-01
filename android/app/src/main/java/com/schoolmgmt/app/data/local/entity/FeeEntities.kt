@@ -134,3 +134,21 @@ data class PaymentEntity(
     @ColumnInfo(name = "isDeleted") val isDeleted: Boolean = false,
     @ColumnInfo(name = "syncedAt") val syncedAt: Long? = null,
 )
+
+@Entity(tableName = "invoice_settings")
+data class InvoiceSettingsEntity(
+    @PrimaryKey val id: String,
+    val schoolName: String,
+    val address: String? = null,
+    val phone: String? = null,
+    val email: String? = null,
+    val footerNote: String? = null,
+    val thermalWidth: Int = 576,
+    val marginSize: Int = 20,
+    val headerFontSize: Int = 28,
+    val bodyFontSize: Int = 14,
+
+    @ColumnInfo(name = "updatedAt") val updatedAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "isDeleted") val isDeleted: Boolean = false,
+    @ColumnInfo(name = "syncedAt") val syncedAt: Long? = null,
+)

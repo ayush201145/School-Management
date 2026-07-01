@@ -6,6 +6,7 @@ import com.schoolmgmt.app.data.local.entity.PaymentMode
 import com.schoolmgmt.app.data.repository.AuthRepository
 import com.schoolmgmt.app.data.repository.FeeRepository
 import com.schoolmgmt.app.data.repository.OverpaymentException
+import com.schoolmgmt.app.data.repository.ReceiptItem
 import com.schoolmgmt.app.sync.SyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,7 +81,7 @@ class RecordPaymentViewModel @Inject constructor(
         mode: PaymentMode,
         referenceNo: String?,
         notes: String?,
-        onSuccess: () -> Unit,
+        onSuccess: (List<ReceiptItem>) -> Unit,
     ) {
         if (amount <= 0) {
             _uiState.value = _uiState.value.copy(errorMessage = "Enter an amount greater than 0")
@@ -93,7 +94,7 @@ class RecordPaymentViewModel @Inject constructor(
                 val userId = authRepository.getCurrentUserId()
                     ?: throw IllegalStateException("Not logged in")
 
-                feeRepository.recordBulkPayment(
+                val result = feeRepository.recordBulkPayment(
                     studentId = studentId,
                     totalAmount = amount,
                     mode = mode,
@@ -105,7 +106,7 @@ class RecordPaymentViewModel @Inject constructor(
                 syncScheduler.syncNow()
 
                 _uiState.value = _uiState.value.copy(isSubmitting = false)
-                onSuccess()
+                onSuccess(result.items)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isSubmitting = false,

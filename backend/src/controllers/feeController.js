@@ -19,6 +19,41 @@ async function createFeeCategory(req, res) {
   res.status(201).json(category);
 }
 
+async function updateFeeCategory(req, res) {
+  const { id } = req.params;
+  const { name, description } = req.body;
+
+  const existing = await prisma.feeCategory.findFirst({ where: { id, isDeleted: false } });
+  if (!existing) throw new ApiError(404, "Fee Category not found");
+
+  const data = {};
+  if (name !== undefined) {
+    if (!name) throw new ApiError(400, "name cannot be empty");
+    data.name = name;
+  }
+  if (description !== undefined) data.description = description;
+
+  const category = await prisma.feeCategory.update({
+    where: { id },
+    data,
+  });
+  res.json(category);
+}
+
+async function deleteFeeCategory(req, res) {
+  const { id } = req.params;
+
+  const existing = await prisma.feeCategory.findFirst({ where: { id, isDeleted: false } });
+  if (!existing) throw new ApiError(404, "Fee Category not found");
+
+  // Soft delete
+  await prisma.feeCategory.update({
+    where: { id },
+    data: { isDeleted: true },
+  });
+  res.status(204).send();
+}
+
 // ---------- Fee Structures ----------
 
 /**
@@ -146,6 +181,8 @@ async function assignFeeStructure(req, res) {
 module.exports = {
   listFeeCategories,
   createFeeCategory,
+  updateFeeCategory,
+  deleteFeeCategory,
   listFeeStructures,
   createFeeStructure,
   assignFeeStructure,
