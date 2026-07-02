@@ -39,7 +39,17 @@ async function applyStockMovement(tx, itemVariantId, type, quantity, opts = {}) 
   if (!variant) throw new ApiError(404, "Item variant not found");
 
   const delta = INCREASING_TYPES.has(type) ? quantity : -quantity;
-  const newStock = variant.stockQuantity + delta;
+
+  const updatedVariant = await tx.itemVariant.update({
+    where: { id: itemVariantId },
+    data: {
+      stockQuantity: {
+        increment: delta
+      }
+    }
+  });
+
+  const newStock = updatedVariant.stockQuantity;
 
   // Sales (OUT) never block — backorder is allowed by default.
   // Manual decreases (ADJUSTMENT_OUT) still block unless explicitly overridden.
@@ -47,14 +57,9 @@ async function applyStockMovement(tx, itemVariantId, type, quantity, opts = {}) 
   if (newStock < 0 && blockOnNegative) {
     throw new ApiError(
       400,
-      `Insufficient stock for "${variant.label}": have ${variant.stockQuantity}, tried to remove ${quantity}`
+      `Insufficient stock for "${variant.label}": had ${variant.stockQuantity}, tried to remove ${quantity}`
     );
   }
-
-  await tx.itemVariant.update({
-    where: { id: itemVariantId },
-    data: { stockQuantity: newStock },
-  });
 
   const transaction = await tx.inventoryTransaction.create({
     data: {

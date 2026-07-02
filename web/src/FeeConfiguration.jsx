@@ -17,6 +17,9 @@ export default function FeeConfiguration({ currentUser, selectedYearId }) {
   const [selectedClassId, setSelectedClassId] = useState('');
   const [newStructCatId, setNewStructCatId] = useState('');
   const [newStructAmount, setNewStructAmount] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [dayOfMonth, setDayOfMonth] = useState(10);
+  const [academicYears, setAcademicYears] = useState([]);
   const [newStructDueDate, setNewStructDueDate] = useState('');
   const [newStructDesc, setNewStructDesc] = useState('');
 
@@ -26,6 +29,7 @@ export default function FeeConfiguration({ currentUser, selectedYearId }) {
   useEffect(() => {
     fetchCategories();
     fetchClasses();
+    fetchAcademicYears();
   }, [selectedYearId]);
 
   useEffect(() => {
@@ -54,6 +58,15 @@ export default function FeeConfiguration({ currentUser, selectedYearId }) {
       }
     } catch (err) {
       console.error('Failed to load classes');
+    }
+  };
+
+  const fetchAcademicYears = async () => {
+    try {
+      const res = await api.get('/api/academic-years');
+      setAcademicYears(res.data);
+    } catch (err) {
+      console.error('Failed to load academic years');
     }
   };
 
@@ -115,21 +128,64 @@ export default function FeeConfiguration({ currentUser, selectedYearId }) {
   // Structure Actions
   const handleCreateStructure = async (e) => {
     e.preventDefault();
-    if (!newStructCatId || !selectedClassId || !newStructAmount || !newStructDueDate) return;
+    if (!newStructCatId || !selectedClassId || !newStructAmount || (!newStructDueDate && !isRecurring)) return;
 
     try {
-      await api.post('/api/fee-structures', {
-        feeCategoryId: newStructCatId,
-        classId: selectedClassId,
-        academicYearId: selectedYearId,
-        amount: parseFloat(newStructAmount),
-        dueDate: new Date(newStructDueDate).toISOString(),
-        description: newStructDesc || null
-      });
+      if (isRecurring) {
+        const yearRecord = academicYears.find(y => y.id === selectedYearId);
+        if (!yearRecord) {
+          alert('Selected academic year not found.');
+          return;
+        }
+
+        const start = new Date(yearRecord.startDate);
+        const end = new Date(yearRecord.endDate);
+        
+        let current = new Date(start.getFullYear(), start.getMonth(), 1);
+        const targetDay = parseInt(dayOfMonth, 10) || 10;
+        
+        const category = categories.find(c => c.id === newStructCatId);
+        const categoryName = category ? category.name : 'Fee';
+        
+        while (current <= end) {
+          let due = new Date(current.getFullYear(), current.getMonth(), targetDay);
+          
+          if (due < start) due = new Date(start);
+          if (due > end) due = new Date(end);
+          
+          const monthName = due.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+          const desc = newStructDesc 
+            ? `${newStructDesc} - ${monthName}` 
+            : `${categoryName} - ${monthName}`;
+          
+          await api.post('/api/fee-structures', {
+            feeCategoryId: newStructCatId,
+            classId: selectedClassId,
+            academicYearId: selectedYearId,
+            amount: parseFloat(newStructAmount),
+            dueDate: due.toISOString(),
+            description: desc
+          });
+          
+          current.setMonth(current.getMonth() + 1);
+        }
+      } else {
+        await api.post('/api/fee-structures', {
+          feeCategoryId: newStructCatId,
+          classId: selectedClassId,
+          academicYearId: selectedYearId,
+          amount: parseFloat(newStructAmount),
+          dueDate: new Date(newStructDueDate).toISOString(),
+          description: newStructDesc || null
+        });
+      }
+
       setNewStructCatId('');
       setNewStructAmount('');
       setNewStructDueDate('');
       setNewStructDesc('');
+      setIsRecurring(false);
+      setDayOfMonth(10);
       fetchStructures(selectedClassId);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to create fee structure');

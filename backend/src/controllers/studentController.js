@@ -89,6 +89,13 @@ async function createStudent(req, res) {
     finalAdmissionNo = (maxNo + 1).toString();
   }
 
+  const duplicate = await prisma.student.findFirst({
+    where: { admissionNo: finalAdmissionNo }
+  });
+  if (duplicate) {
+    throw new ApiError(400, `Admission number '${finalAdmissionNo}' is already in use.`);
+  }
+
   const student = await prisma.student.create({
     data: {
       admissionNo: finalAdmissionNo,
