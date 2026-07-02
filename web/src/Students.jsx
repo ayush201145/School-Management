@@ -48,6 +48,7 @@ export default function Students({ currentUser, selectedYearId }) {
   const [whatsappPhone, setWhatsappPhone] = useState('');
   const [address, setAddress] = useState('');
   const [tuitionFee, setTuitionFee] = useState('');
+  const [createRollNo, setCreateRollNo] = useState('');
 
   // Form: Promote Student
   const [promoteYearId, setPromoteYearId] = useState('');
@@ -56,6 +57,7 @@ export default function Students({ currentUser, selectedYearId }) {
   const [promoteClasses, setPromoteClasses] = useState([]);
   const [promoteSections, setPromoteSections] = useState([]);
   const [promoteFeeOverride, setPromoteFeeOverride] = useState('');
+  const [promoteRollNo, setPromoteRollNo] = useState('');
 
   // Form: Withdraw Student
   const [withdrawReason, setWithdrawReason] = useState('TRANSFERRED');
@@ -125,6 +127,29 @@ export default function Students({ currentUser, selectedYearId }) {
       setPromoteSectionId('');
     }
   }, [promoteClassId]);
+
+  useEffect(() => {
+    if (createSectionId) {
+      const sectionStudents = students.filter(s => s.sectionId === createSectionId && s.isActive);
+      const maxRoll = sectionStudents.reduce((max, s) => s.rollNo && s.rollNo > max ? s.rollNo : max, 0);
+      setCreateRollNo(maxRoll + 1);
+    } else {
+      setCreateRollNo('');
+    }
+  }, [createSectionId, students]);
+
+  useEffect(() => {
+    if (promoteSectionId) {
+      api.get('/api/students', { params: { sectionId: promoteSectionId, isActive: true } })
+        .then(res => {
+          const maxRoll = res.data.reduce((max, s) => s.rollNo && s.rollNo > max ? s.rollNo : max, 0);
+          setPromoteRollNo(maxRoll + 1);
+        })
+        .catch(err => console.error(err));
+    } else {
+      setPromoteRollNo('');
+    }
+  }, [promoteSectionId]);
 
   // Fetch functions
   const fetchStudents = async () => {
@@ -252,6 +277,7 @@ export default function Students({ currentUser, selectedYearId }) {
     try {
       await api.post('/api/students', {
         admissionNo: admNo || undefined,
+        rollNo: createRollNo ? parseInt(createRollNo, 10) : null,
         firstName,
         lastName,
         sectionId: createSectionId,
@@ -265,6 +291,7 @@ export default function Students({ currentUser, selectedYearId }) {
       setShowCreateModal(false);
       // Reset Form
       setAdmNo('');
+      setCreateRollNo('');
       setFirstName('');
       setLastName('');
       setCreateClassId('');
@@ -291,6 +318,7 @@ export default function Students({ currentUser, selectedYearId }) {
     try {
       await api.patch(`/api/students/${selectedStudentId}`, {
         sectionId: promoteSectionId,
+        rollNo: promoteRollNo ? parseInt(promoteRollNo, 10) : null,
         tuitionFee: promoteFeeOverride ? parseFloat(promoteFeeOverride) : null,
       });
 
@@ -299,6 +327,7 @@ export default function Students({ currentUser, selectedYearId }) {
       setPromoteClassId('');
       setPromoteSectionId('');
       setPromoteFeeOverride('');
+      setPromoteRollNo('');
 
       // Reload
       fetchStudentDetails(selectedStudentId);
@@ -490,6 +519,7 @@ export default function Students({ currentUser, selectedYearId }) {
                 <thead>
                   <tr>
                     <th style={{ paddingLeft: '24px' }}>Adm No.</th>
+                    <th>Roll No.</th>
                     <th>Name</th>
                     <th>Class & Section</th>
                     <th>Guardian Details</th>
@@ -509,6 +539,9 @@ export default function Students({ currentUser, selectedYearId }) {
                     >
                       <td style={{ paddingLeft: '24px', fontWeight: 700, color: 'var(--text-secondary)' }}>
                         {student.admissionNo}
+                      </td>
+                      <td style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        {student.rollNo || '-'}
                       </td>
                       <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                         {student.firstName} {student.lastName}
@@ -570,7 +603,7 @@ export default function Students({ currentUser, selectedYearId }) {
                 {studentDetails.firstName} {studentDetails.lastName}
               </h2>
               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                Admission No: {studentDetails.admissionNo} · {studentDetails.section ? `${studentDetails.section.schoolClass.name} - ${studentDetails.section.name}` : 'No Class'}
+                Admission No: {studentDetails.admissionNo} · {studentDetails.section ? `${studentDetails.section.schoolClass.name} - ${studentDetails.section.name}` : 'No Class'} · Roll No: {studentDetails.rollNo || 'N/A'}
               </span>
             </div>
             <button 
@@ -838,9 +871,15 @@ export default function Students({ currentUser, selectedYearId }) {
                 </div>
               </div>
 
-              <div className="input-group">
-                <label className="input-label">Admission Number (Leave blank to auto-generate)</label>
-                <input type="text" className="input-field" placeholder="e.g. ADM202601" value={admNo} onChange={e => setAdmNo(e.target.value)} />
+              <div className="grid-2">
+                <div className="input-group">
+                  <label className="input-label">Admission Number (Blank for auto)</label>
+                  <input type="text" className="input-field" placeholder="e.g. ADM202601" value={admNo} onChange={e => setAdmNo(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Roll Number</label>
+                  <input type="number" className="input-field" placeholder="e.g. 15" value={createRollNo} onChange={e => setCreateRollNo(e.target.value)} />
+                </div>
               </div>
 
               <div className="grid-2">
@@ -954,15 +993,27 @@ export default function Students({ currentUser, selectedYearId }) {
                 </select>
               </div>
 
-              <div className="input-group">
-                <label className="input-label">New Base Tuition Fee Override (Optional)</label>
-                <input 
-                  type="number" 
-                  className="input-field" 
-                  placeholder="Leave blank to copy current tuition fee" 
-                  value={promoteFeeOverride} 
-                  onChange={e => setPromoteFeeOverride(e.target.value)} 
-                />
+              <div className="grid-2">
+                <div className="input-group">
+                  <label className="input-label">New Roll Number</label>
+                  <input 
+                    type="number" 
+                    className="input-field" 
+                    placeholder="e.g. 15" 
+                    value={promoteRollNo} 
+                    onChange={e => setPromoteRollNo(e.target.value)} 
+                  />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Tuition Fee Override (Optional)</label>
+                  <input 
+                    type="number" 
+                    className="input-field" 
+                    placeholder="Class Default" 
+                    value={promoteFeeOverride} 
+                    onChange={e => setPromoteFeeOverride(e.target.value)} 
+                  />
+                </div>
               </div>
 
               {error && <div style={{ color: 'var(--error)', marginBottom: '16px', fontSize: '0.9rem' }}>{error}</div>}

@@ -87,7 +87,7 @@ import com.schoolmgmt.app.data.local.entity.InvoiceSettingsEntity
         ExpenseEntity::class,
         InvoiceSettingsEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true, // schemas/ dir gets checked into version control — needed for migration testing
 )
 @TypeConverters(Converters::class)
@@ -130,7 +130,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                 .build()
                 INSTANCE = instance
                 instance
@@ -292,6 +292,12 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """
                 )
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `students` ADD COLUMN `rollNo` INTEGER DEFAULT NULL")
             }
         }
     }

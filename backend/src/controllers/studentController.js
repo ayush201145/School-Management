@@ -55,6 +55,7 @@ async function getStudent(req, res) {
 async function createStudent(req, res) {
   const {
     admissionNo,
+    rollNo,
     firstName,
     lastName,
     dateOfBirth,
@@ -96,9 +97,25 @@ async function createStudent(req, res) {
     throw new ApiError(400, `Admission number '${finalAdmissionNo}' is already in use.`);
   }
 
+  const roll = rollNo !== undefined && rollNo !== null && rollNo !== "" ? parseInt(rollNo, 10) : null;
+  if (roll !== null) {
+    const duplicateRoll = await prisma.student.findFirst({
+      where: {
+        sectionId,
+        rollNo: roll,
+        isDeleted: false,
+        isActive: true,
+      }
+    });
+    if (duplicateRoll) {
+      throw new ApiError(400, `Roll number '${roll}' is already assigned in this section.`);
+    }
+  }
+
   const student = await prisma.student.create({
     data: {
       admissionNo: finalAdmissionNo,
+      rollNo: roll,
       firstName,
       lastName,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
@@ -140,6 +157,7 @@ async function updateStudent(req, res) {
     "tuitionFee",
     "sectionId",
     "isActive",
+    "rollNo"
   ];
   const data = {};
   for (const key of allowed) {
@@ -150,9 +168,31 @@ async function updateStudent(req, res) {
     data.tuitionFee = data.tuitionFee ? parseFloat(data.tuitionFee) : null;
   }
 
+  const targetSectionId = data.sectionId || existing.sectionId;
+  const targetRollNo = data.rollNo !== undefined ? (data.rollNo !== null && data.rollNo !== "" ? parseInt(data.rollNo, 10) : null) : existing.rollNo;
+
+  if (data.rollNo !== undefined) {
+    data.rollNo = targetRollNo;
+  }
+
   if (data.sectionId) {
     const section = await prisma.section.findFirst({ where: { id: data.sectionId, isDeleted: false } });
     if (!section) throw new ApiError(400, "sectionId does not refer to a valid section");
+  }
+
+  if (targetRollNo !== null && (data.rollNo !== undefined || data.sectionId !== undefined)) {
+    const duplicateRoll = await prisma.student.findFirst({
+      where: {
+        sectionId: targetSectionId,
+        rollNo: targetRollNo,
+        id: { not: req.params.id },
+        isDeleted: false,
+        isActive: true,
+      }
+    });
+    if (duplicateRoll) {
+      throw new ApiError(400, `Roll number '${targetRollNo}' is already assigned in this section.`);
+    }
   }
 
   const student = await prisma.student.update({ where: { id: req.params.id }, data });

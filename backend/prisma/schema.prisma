@@ -181,6 +181,7 @@ model Section {
 model Student {
   id              String    @id @default(uuid())
   admissionNo     String    @unique
+  rollNo          Int?
   firstName       String
   lastName        String
   dateOfBirth     DateTime?

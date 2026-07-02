@@ -13,6 +13,7 @@ import com.schoolmgmt.app.data.local.entity.TeacherEntity
  */
 fun StudentEntity.toWireMap(): Map<String, Any?> = mapOf(
     "admissionNo" to admissionNo,
+    "rollNo" to rollNo,
     "firstName" to firstName,
     "lastName" to lastName,
     "dateOfBirth" to dateOfBirth?.let(IsoDates::toIsoString),

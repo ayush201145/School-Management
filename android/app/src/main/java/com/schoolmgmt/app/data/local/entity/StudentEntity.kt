@@ -44,6 +44,7 @@ enum class WithdrawalReason { TRANSFERRED, GRADUATED, EXPELLED, OTHER }
 data class StudentEntity(
     @PrimaryKey val id: String,
     val admissionNo: String,
+    val rollNo: Int? = null,
     val firstName: String,
     val lastName: String,
     val dateOfBirth: Long? = null,    // epoch millis, null if unknown

@@ -14,19 +14,57 @@ async function listAcademicYears(req, res) {
 async function createAcademicYear(req, res) {
   const { label, startDate, endDate, isCurrent } = req.body;
 
-  // If this year is marked current, un-mark any previous current year
-  // so there's only ever one "current" academic year at a time.
-  if (isCurrent) {
-    await prisma.academicYear.updateMany({
-      where: { isCurrent: true },
-      data: { isCurrent: false },
+  let previousYear = await prisma.academicYear.findFirst({
+    where: { isCurrent: true, isDeleted: false }
+  });
+  if (!previousYear) {
+    previousYear = await prisma.academicYear.findFirst({
+      where: { isDeleted: false },
+      orderBy: { startDate: "desc" }
     });
   }
 
-  const year = await prisma.academicYear.create({
-    data: { label, startDate, endDate, isCurrent: !!isCurrent },
+  const result = await prisma.$transaction(async (tx) => {
+    if (isCurrent) {
+      await tx.academicYear.updateMany({
+        where: { isCurrent: true },
+        data: { isCurrent: false },
+      });
+    }
+
+    const year = await tx.academicYear.create({
+      data: { label, startDate, endDate, isCurrent: !!isCurrent },
+    });
+
+    if (previousYear) {
+      const oldClasses = await tx.schoolClass.findMany({
+        where: { academicYearId: previousYear.id, isDeleted: false },
+        include: { sections: { where: { isDeleted: false } } }
+      });
+
+      for (const oldClass of oldClasses) {
+        const newClass = await tx.schoolClass.create({
+          data: {
+            name: oldClass.name,
+            academicYearId: year.id
+          }
+        });
+
+        for (const oldSec of oldClass.sections) {
+          await tx.section.create({
+            data: {
+              name: oldSec.name,
+              classId: newClass.id,
+            }
+          });
+        }
+      }
+    }
+
+    return year;
   });
-  res.status(201).json(year);
+
+  res.status(201).json(result);
 }
 
 // ---------- Classes ----------

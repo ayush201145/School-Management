@@ -38,6 +38,7 @@ object StudentSyncAdapter : SyncTableAdapter {
         val merged = StudentEntity(
             id = id,
             admissionNo = (fields["admissionNo"] as? String) ?: existing?.admissionNo ?: "",
+            rollNo = (fields["rollNo"] as? Number)?.toInt() ?: existing?.rollNo,
             firstName = (fields["firstName"] as? String) ?: existing?.firstName ?: "",
             lastName = (fields["lastName"] as? String) ?: existing?.lastName ?: "",
             dateOfBirth = (fields["dateOfBirth"] as? String)?.let(IsoDates::parseToMillis) ?: existing?.dateOfBirth,
