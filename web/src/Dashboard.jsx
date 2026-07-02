@@ -8,6 +8,7 @@ import Attendance from './Attendance';
 import InvoiceSettings from './InvoiceSettings';
 import FeeConfiguration from './FeeConfiguration';
 import Students from './Students';
+import Overview from './Overview';
 import { Users, Calendar, Package, BarChart3, LogOut, School, Shield, CheckSquare, Settings, CreditCard, GraduationCap } from 'lucide-react';
 
 export default function Dashboard({ user, onLogout }) {
@@ -18,6 +19,7 @@ export default function Dashboard({ user, onLogout }) {
 
   // Configure tabs based on user roles
   const menuItems = [
+    { id: 'home', label: 'Dashboard Overview', icon: School, roles: ['MASTER', 'ADMIN', 'ACCOUNTANT', 'TEACHER'], component: Overview },
     { id: 'users', label: 'User Accounts', icon: Users, roles: ['MASTER'], component: UserManagement },
     { id: 'years', label: 'Academic Years', icon: Calendar, roles: ['MASTER', 'ADMIN'], component: AcademicYears },
     { id: 'students', label: 'Students Directory', icon: GraduationCap, roles: ['MASTER', 'ADMIN', 'ACCOUNTANT', 'TEACHER'], component: Students },
