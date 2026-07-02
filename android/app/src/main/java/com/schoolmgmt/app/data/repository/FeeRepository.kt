@@ -84,6 +84,16 @@ class FeeRepository @Inject constructor(
         return (fee.amount - fee.discount - alreadyPaid).coerceAtLeast(0.0)
     }
 
+    suspend fun markFeeAsDefaulted(studentFeeId: String) {
+        val existing = studentFeeDao.getById(studentFeeId) ?: return
+        val updated = existing.copy(
+            isDefaulted = true,
+            updatedAt = System.currentTimeMillis(),
+            syncedAt = null
+        )
+        studentFeeDao.upsert(updated)
+    }
+
     /**
      * Records a payment against a StudentFee and recalculates its
      * status, ATOMICALLY — both writes happen in one Room transaction

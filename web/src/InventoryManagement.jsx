@@ -13,6 +13,7 @@ export default function InventoryManagement() {
   const [costPrice, setCostPrice] = useState('');
   const [restockQty, setRestockQty] = useState('');
   const [editError, setEditError] = useState('');
+  const [filterType, setFilterType] = useState('ALL');
 
   useEffect(() => {
     fetchInventory();
@@ -99,9 +100,35 @@ export default function InventoryManagement() {
       {error && <p style={{ color: 'var(--error)' }}>{error}</p>}
 
       {!loading && !error && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          {categories.map((category) => (
-            <div key={category.id} className="glass-card" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
+            {[
+              { label: 'All Inventory', type: 'ALL' },
+              { label: 'Books', type: 'BOOK' },
+              { label: 'Summer Uniforms', type: 'UNIFORM_SUMMER' },
+              { label: 'Winter Uniforms', type: 'UNIFORM_WINTER' },
+              { label: 'Others / Miscellaneous', type: 'OTHER' },
+            ].map(btn => (
+              <button
+                key={btn.type}
+                className={`btn ${filterType === btn.type ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setFilterType(btn.type)}
+                style={{ 
+                  borderRadius: '20px', 
+                  padding: '6px 16px', 
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                }}
+              >
+                {btn.label}
+              </button>
+            ))}
+          </div>
+
+          {categories
+            .filter(cat => filterType === 'ALL' || cat.type === filterType)
+            .map((category) => (
+              <div key={category.id} className="glass-card" style={{ animation: 'fadeIn 0.3s ease-out', marginTop: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
                 <Package size={24} style={{ color: 'var(--accent-primary)' }} />
                 <div>

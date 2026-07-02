@@ -112,6 +112,7 @@ object StudentFeeSyncAdapter : SyncTableAdapter {
             status = (fields["status"] as? String)?.let {
                 runCatching { FeeStatus.valueOf(it) }.getOrNull()
             } ?: existing?.status ?: FeeStatus.UNPAID,
+            isDefaulted = (fields["isDefaulted"] as? Boolean) ?: existing?.isDefaulted ?: false,
             updatedAt = updatedAtMillis,
             isDeleted = isDeleted,
             syncedAt = updatedAtMillis,

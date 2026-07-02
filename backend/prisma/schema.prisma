@@ -392,6 +392,7 @@ model StudentFee {
   dueDate         DateTime
   discount        Decimal     @default(0) @db.Decimal(10, 2)
   status          FeeStatus   @default(UNPAID)
+  isDefaulted     Boolean     @default(false)
 
   payments        Payment[]
 

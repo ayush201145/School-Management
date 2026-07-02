@@ -27,6 +27,41 @@ export default function AcademicYears() {
   }, []);
 
   useEffect(() => {
+    if (isOpenForm) {
+      const latestYear = years.reduce((latest, y) => {
+        if (!latest) return y;
+        return new Date(y.startDate) > new Date(latest.startDate) ? y : latest;
+      }, null);
+
+      if (latestYear) {
+        const matches = latestYear.label.match(/^(\d{4})-(\d{2})$/);
+        if (matches) {
+          const startYear = parseInt(matches[1], 10);
+          const nextStartYear = startYear + 1;
+          const nextEndYear = nextStartYear + 1;
+          const nextEndYearSuffix = nextEndYear % 100;
+          
+          setLabel(`${nextStartYear}-${String(nextEndYearSuffix).padStart(2, '0')}`);
+          setStartDate(`${nextStartYear}-04-01`);
+          setEndDate(`${nextEndYear}-03-31`);
+        } else {
+          const latestStart = new Date(latestYear.startDate);
+          const nextStartYear = latestStart.getFullYear() + 1;
+          const nextEndYear = nextStartYear + 1;
+          setLabel(`${nextStartYear}-${String(nextEndYear % 100).padStart(2, '0')}`);
+          setStartDate(`${nextStartYear}-04-01`);
+          setEndDate(`${nextEndYear}-03-31`);
+        }
+      } else {
+        const curYear = new Date().getFullYear();
+        setLabel(`${curYear}-${String((curYear + 1) % 100).padStart(2, '0')}`);
+        setStartDate(`${curYear}-04-01`);
+        setEndDate(`${curYear + 1}-03-31`);
+      }
+    }
+  }, [isOpenForm, years]);
+
+  useEffect(() => {
     if (fromYearId) {
       fetchLeftoverBooks();
     } else {
@@ -150,35 +185,38 @@ export default function AcademicYears() {
           <h3 style={{ fontFamily: 'Outfit, sans-serif', fontSize: '1.2rem', marginBottom: '20px' }}>Setup New Academic Year</h3>
           <form onSubmit={handleCreateYear}>
             <div className="input-group">
-              <label className="input-label">Label / Name</label>
+              <label className="input-label">Academic Year Label (Auto-calculated)</label>
               <input
                 type="text"
                 className="input-field"
                 placeholder="e.g. 2027-28"
                 value={label}
-                onChange={(e) => setLabel(e.target.value)}
+                disabled
+                style={{ opacity: 0.8, cursor: 'not-allowed' }}
                 required
               />
             </div>
             
             <div className="grid-2">
               <div className="input-group">
-                <label className="input-label">Start Date</label>
+                <label className="input-label">Start Date (Fixed)</label>
                 <input
                   type="date"
                   className="input-field"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  disabled
+                  style={{ opacity: 0.8, cursor: 'not-allowed' }}
                   required
                 />
               </div>
               <div className="input-group">
-                <label className="input-label">End Date</label>
+                <label className="input-label">End Date (Fixed)</label>
                 <input
                   type="date"
                   className="input-field"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  disabled
+                  style={{ opacity: 0.8, cursor: 'not-allowed' }}
                   required
                 />
               </div>

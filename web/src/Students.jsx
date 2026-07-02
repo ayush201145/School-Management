@@ -339,6 +339,22 @@ export default function Students({ currentUser, selectedYearId }) {
     }
   };
 
+  const handleMarkFeeDefaulted = async (feeId) => {
+    if (!window.confirm("Are you sure you want to mark this fee as defaulted? This will write off the remaining balance and exclude it from active dues reports.")) {
+      return;
+    }
+    try {
+      await api.post(`/api/student-fees/${feeId}/default`);
+      alert("Fee marked as defaulted.");
+      if (selectedStudentId) {
+        fetchStudentDetails(selectedStudentId);
+      }
+      fetchStudents();
+    } catch (err) {
+      alert(err.response?.data?.error || "Failed to mark fee as defaulted.");
+    }
+  };
+
   const handleWithdrawStudent = async (e) => {
     e.preventDefault();
     setActionLoading(true);
@@ -733,6 +749,7 @@ export default function Students({ currentUser, selectedYearId }) {
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                   Total Dues: <strong style={{ color: 'var(--error)' }}>
                     ₹{studentDetails.studentFees?.reduce((sum, f) => {
+                      if (f.isDefaulted) return sum;
                       const paid = f.payments.reduce((s, p) => s + parseFloat(p.amount), 0);
                       return sum + (parseFloat(f.amount) - parseFloat(f.discount) - paid);
                     }, 0).toFixed(2)}
@@ -769,35 +786,44 @@ export default function Students({ currentUser, selectedYearId }) {
                           borderRadius: '8px',
                           fontSize: '0.75rem',
                           fontWeight: 700,
-                          background: balance <= 0 ? 'rgba(16,185,129,0.1)' : paid > 0 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
-                          color: balance <= 0 ? '#10b981' : paid > 0 ? '#f59e0b' : '#ef4444',
+                          background: fee.isDefaulted ? 'rgba(107,114,128,0.1)' : balance <= 0 ? 'rgba(16,185,129,0.1)' : paid > 0 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                          color: fee.isDefaulted ? '#6b7280' : balance <= 0 ? '#10b981' : paid > 0 ? '#f59e0b' : '#ef4444',
                         }}>
-                          {balance <= 0 ? 'PAID' : paid > 0 ? 'PARTIAL' : 'UNPAID'}
+                          {fee.isDefaulted ? 'DEFAULTED' : balance <= 0 ? 'PAID' : paid > 0 ? 'PARTIAL' : 'UNPAID'}
                         </span>
                       </div>
                       
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                         <span>Billed: ₹{parseFloat(fee.amount).toFixed(0)}</span>
                         <span>Paid: ₹{paid.toFixed(0)}</span>
-                        <span style={{ fontWeight: 700, color: balance > 0 ? 'var(--error)' : 'var(--text-primary)' }}>
-                          Bal: ₹{balance.toFixed(0)}
+                        <span style={{ fontWeight: 700, color: fee.isDefaulted ? '#6b7280' : balance > 0 ? 'var(--error)' : 'var(--text-primary)' }}>
+                          Bal: {fee.isDefaulted ? '₹0 (Defaulted)' : `₹${balance.toFixed(0)}`}
                         </span>
                       </div>
 
-                      {balance > 0 && ['MASTER', 'ADMIN', 'ACCOUNTANT'].includes(currentUser.role) && (
-                        <button
-                          className="btn btn-secondary"
-                          onClick={() => {
-                            setPaymentFeeId(fee.id);
-                            setPaymentFeeDesc(fee.description);
-                            setPaymentAmount(balance);
-                            setPaymentMax(balance);
-                            setShowPaymentModal(true);
-                          }}
-                          style={{ alignSelf: 'flex-end', padding: '4px 10px', fontSize: '0.75rem', marginTop: '4px' }}
-                        >
-                          <DollarSign size={12} /> Pay Fee
-                        </button>
+                      {balance > 0 && !fee.isDefaulted && ['MASTER', 'ADMIN', 'ACCOUNTANT'].includes(currentUser.role) && (
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                          <button
+                            className="btn btn-secondary"
+                            onClick={() => {
+                              setPaymentFeeId(fee.id);
+                              setPaymentFeeDesc(fee.description);
+                              setPaymentAmount(balance);
+                              setPaymentMax(balance);
+                              setShowPaymentModal(true);
+                            }}
+                            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                          >
+                            <DollarSign size={12} /> Pay Fee
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => handleMarkFeeDefaulted(fee.id)}
+                            style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                          >
+                            Mark Default
+                          </button>
+                        </div>
                       )}
                     </div>
                   );

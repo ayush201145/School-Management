@@ -98,6 +98,7 @@ data class StudentFeeEntity(
     val dueDate: Long,
     val discount: Double = 0.0,
     val status: FeeStatus = FeeStatus.UNPAID,
+    val isDefaulted: Boolean = false,
 
     @ColumnInfo(name = "updatedAt") val updatedAt: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "isDeleted") val isDeleted: Boolean = false,

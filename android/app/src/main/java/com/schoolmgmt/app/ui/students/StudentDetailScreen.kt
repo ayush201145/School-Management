@@ -11,11 +11,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -80,6 +84,7 @@ fun StudentDetailScreen(
     var feeForPayment by remember { mutableStateOf<StudentFeeEntity?>(null) }
     var showPurchaseDialog by remember { mutableStateOf(false) }
     var showBulkPaymentDialog by remember { mutableStateOf(false) }
+    var showDefaultConfirmFeeId by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -149,7 +154,11 @@ fun StudentDetailScreen(
             }
             LazyColumn {
                 items(uiState.fees, key = { it.id }) { fee ->
-                    FeeRow(fee, onClick = { if (fee.status != FeeStatus.PAID) feeForPayment = fee })
+                    FeeRow(
+                        fee = fee,
+                        onClick = { if (fee.status != FeeStatus.PAID && !fee.isDefaulted) feeForPayment = fee },
+                        onMarkDefault = { showDefaultConfirmFeeId = fee.id }
+                    )
                 }
             }
         }
@@ -161,6 +170,29 @@ fun StudentDetailScreen(
             onConfirm = { reason, notes ->
                 viewModel.withdraw(reason, notes) { showWithdrawDialog = false }
             },
+        )
+    }
+
+    if (showDefaultConfirmFeeId != null) {
+        AlertDialog(
+            onDismissRequest = { showDefaultConfirmFeeId = null },
+            title = { Text("Mark as Defaulted") },
+            text = { Text("Are you sure you want to mark this fee as defaulted? This will write off the unpaid balance locally and sync it with the server.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDefaultConfirmFeeId?.let { viewModel.markFeeAsDefaulted(it) }
+                        showDefaultConfirmFeeId = null
+                    }
+                ) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDefaultConfirmFeeId = null }) {
+                    Text("Cancel")
+                }
+            }
         )
     }
 
@@ -269,18 +301,45 @@ fun StudentDetailScreen(
 }
 
 @Composable
-private fun FeeRow(fee: StudentFeeEntity, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+private fun FeeRow(
+    fee: StudentFeeEntity, 
+    onClick: () -> Unit,
+    onMarkDefault: () -> Unit
+) {
+    Card(
+        onClick = { if (!fee.isDefaulted) onClick() },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = if (fee.isDefaulted) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else CardDefaults.cardColors()
+    ) {
         ListItem(
             headlineContent = { Text(fee.description) },
-            supportingContent = { Text("₹${fee.amount} · ${fee.status.name}") },
+            supportingContent = { 
+                val supportText = if (fee.isDefaulted) "Defaulted (Write-off)" else "₹${fee.amount} · ${fee.status.name}"
+                Text(supportText)
+            },
             trailingContent = {
-                val color = when (fee.status) {
-                    FeeStatus.PAID -> MaterialTheme.colorScheme.primary
-                    FeeStatus.PARTIAL -> MaterialTheme.colorScheme.tertiary
-                    FeeStatus.UNPAID -> MaterialTheme.colorScheme.error
+                if (fee.isDefaulted) {
+                    Text("DEFAULTED", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                } else {
+                    val color = when (fee.status) {
+                        FeeStatus.PAID -> MaterialTheme.colorScheme.primary
+                        FeeStatus.PARTIAL -> MaterialTheme.colorScheme.tertiary
+                        FeeStatus.UNPAID -> MaterialTheme.colorScheme.error
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(fee.status.name, color = color, style = MaterialTheme.typography.labelMedium)
+                        if (fee.status != FeeStatus.PAID) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(onClick = onMarkDefault) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Mark Default",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
                 }
-                Text(fee.status.name, color = color, style = MaterialTheme.typography.labelMedium)
             },
         )
     }

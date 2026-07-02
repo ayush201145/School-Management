@@ -115,6 +115,7 @@ async function listDues(req, res) {
   const where = {
     isDeleted: false,
     status: { in: ["UNPAID", "PARTIAL"] },
+    isDefaulted: false,
   };
   if (overdueOnly === "true") {
     where.dueDate = { lt: new Date() };
@@ -163,4 +164,20 @@ async function listDues(req, res) {
   res.json({ count: withBalance.length, totalOutstanding, dues: withBalance });
 }
 
-module.exports = { createPayment, listPaymentsForFee, listTransactions, listDues };
+async function markFeeAsDefaulted(req, res) {
+  const { studentFeeId } = req.params;
+
+  const studentFee = await prisma.studentFee.findFirst({
+    where: { id: studentFeeId, isDeleted: false },
+  });
+  if (!studentFee) throw new ApiError(404, "StudentFee not found");
+
+  const updated = await prisma.studentFee.update({
+    where: { id: studentFeeId },
+    data: { isDefaulted: true },
+  });
+
+  res.json(updated);
+}
+
+module.exports = { createPayment, listPaymentsForFee, listTransactions, listDues, markFeeAsDefaulted };

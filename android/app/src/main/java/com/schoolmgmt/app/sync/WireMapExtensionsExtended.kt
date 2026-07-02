@@ -51,6 +51,7 @@ fun StudentFeeEntity.toWireMap(): Map<String, Any?> = mapOf(
     "dueDate" to IsoDates.toIsoString(dueDate),
     "discount" to discount,
     "status" to status.name,
+    "isDefaulted" to isDefaulted,
 )
 
 fun PaymentEntity.toWireMap(): Map<String, Any?> = mapOf(

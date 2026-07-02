@@ -109,10 +109,16 @@ class StudentDetailViewModel @Inject constructor(
     suspend fun getTotalDuesBalance(): Double {
         var balance = 0.0
         for (fee in uiState.value.fees) {
-            if (fee.status != FeeStatus.PAID) {
+            if (fee.status != FeeStatus.PAID && !fee.isDefaulted) {
                 balance += feeRepository.getRemainingBalance(fee.id)
             }
         }
         return balance
+    }
+
+    fun markFeeAsDefaulted(feeId: String) {
+        viewModelScope.launch {
+            feeRepository.markFeeAsDefaulted(feeId)
+        }
     }
 }
