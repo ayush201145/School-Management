@@ -11,7 +11,7 @@ async function getDashboardStats(req, res) {
     const activeStudents = await prisma.student.findMany({
       where: {
         isDeleted: false,
-        status: "ACTIVE",
+        isActive: true,
         section: {
           schoolClass: {
             academicYearId: academicYearId
