@@ -67,6 +67,8 @@ export const StaffDetailScreen: React.FC = () => {
       setModalError(null);
       await staffApi.recordSalaryPayment(staffId, {
         amount: amt,
+        forMonth: m,
+        forYear: y,
         month: m,
         year: y,
         mode: payMode,
@@ -151,7 +153,7 @@ export const StaffDetailScreen: React.FC = () => {
             <View style={styles.payRow}>
               <View>
                 <Text style={styles.payMonth}>
-                  Month: {p.month}/{p.year}
+                  Month: {p.forMonth ?? p.month}/{p.forYear ?? p.year}
                 </Text>
                 <Text style={styles.payDate}>
                   Paid: {p.paidAt ? p.paidAt.substring(0, 10) : ''} ({p.mode})

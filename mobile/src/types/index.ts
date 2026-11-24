@@ -269,8 +269,10 @@ export interface SalaryPayment {
   id: string;
   staffId: string;
   amount: number;
-  month: number;
-  year: number;
+  forMonth?: number;
+  forYear?: number;
+  month?: number;
+  year?: number;
   paidAt: string;
   mode: PaymentMode;
   notes?: string | null;

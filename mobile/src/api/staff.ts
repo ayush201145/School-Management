@@ -35,13 +35,24 @@ export const staffApi = {
     staffId: string,
     data: {
       amount: number;
-      month: number;
-      year: number;
+      forMonth?: number;
+      forYear?: number;
+      month?: number;
+      year?: number;
       mode: PaymentMode;
       notes?: string;
     }
   ): Promise<SalaryPayment> => {
-    const res = await apiClient.post<SalaryPayment>(`/api/staff/${staffId}/salary-payments`, data);
+    const forMonth = data.forMonth ?? data.month;
+    const forYear = data.forYear ?? data.year;
+    const payload = {
+      ...data,
+      forMonth,
+      forYear,
+      month: forMonth,
+      year: forYear,
+    };
+    const res = await apiClient.post<SalaryPayment>(`/api/staff/${staffId}/salary-payments`, payload);
     return res.data;
   },
 

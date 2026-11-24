@@ -9,11 +9,14 @@ const { ApiError } = require("../middleware/errorHandler");
  */
 async function createSalaryPayment(req, res) {
   const { staffId } = req.params;
-  const { amount, forMonth, forYear, mode, referenceNo, notes, paidAt } = req.body;
+  const { amount, forMonth, forYear, month, year, mode, referenceNo, notes, paidAt } = req.body;
+
+  const targetMonth = forMonth !== undefined ? Number(forMonth) : (month !== undefined ? Number(month) : null);
+  const targetYear = forYear !== undefined ? Number(forYear) : (year !== undefined ? Number(year) : null);
 
   if (!amount || Number(amount) <= 0) throw new ApiError(400, "amount must be greater than 0");
-  if (!forMonth || forMonth < 1 || forMonth > 12) throw new ApiError(400, "forMonth must be 1-12");
-  if (!forYear) throw new ApiError(400, "forYear is required");
+  if (!targetMonth || targetMonth < 1 || targetMonth > 12) throw new ApiError(400, "forMonth must be 1-12");
+  if (!targetYear) throw new ApiError(400, "forYear is required");
   if (!mode) throw new ApiError(400, "mode is required");
 
   const staff = await prisma.staff.findFirst({ where: { id: staffId, isDeleted: false } });
@@ -23,8 +26,8 @@ async function createSalaryPayment(req, res) {
     data: {
       staffId,
       amount,
-      forMonth,
-      forYear,
+      forMonth: targetMonth,
+      forYear: targetYear,
       mode,
       referenceNo,
       notes,
